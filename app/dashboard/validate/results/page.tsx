@@ -209,7 +209,7 @@ export default function ValidationResultsPage() {
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.6, delay: 0.25 }}
-              className="mb-10"
+              className="mb-6"
             >
               <Card className="bg-white/5 backdrop-blur-sm border-white/10">
                 <CardHeader>
@@ -244,6 +244,30 @@ export default function ValidationResultsPage() {
                 </CardContent>
               </Card>
             </motion.div>
+
+            {/* Long-form Partner Memo */}
+            {free.longReport?.text && (
+              <motion.div
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.6, delay: 0.3 }}
+                className="mb-10"
+              >
+                <Card className="bg-white/5 backdrop-blur-sm border-white/10">
+                  <CardHeader>
+                    <CardTitle className="text-white text-sm">Detailed Partner Memo</CardTitle>
+                    <CardDescription className="text-gray-400 text-xs">
+                      A longer, YC-partner style read on your idea. Use this to pressure-test your own thinking.
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="prose prose-invert max-w-none text-sm text-gray-200 whitespace-pre-line">
+                      {free.longReport.text}
+                    </div>
+                  </CardContent>
+                </Card>
+              </motion.div>
+            )}
           </div>
         </main>
       </div>

@@ -16,6 +16,36 @@ export interface KGItem {
 
 const KG_ITEMS: KGItem[] = seedData as KGItem[]
 
+// Optional vector index built by scripts/ingest.ts. We load lazily so that
+// local development works even if the index has not been generated.
+interface KGVectorIndexItem {
+  id: string
+  embedding: number[]
+  tags: string[]
+}
+
+interface KGVectorIndex {
+  model: string
+  createdAt: string
+  items: KGVectorIndexItem[]
+}
+
+let vectorIndex: KGVectorIndex | null = null
+
+function loadVectorIndex(): KGVectorIndex | null {
+  if (vectorIndex !== null) return vectorIndex
+  try {
+    // Using require here avoids bundling issues if the file is missing.
+    // eslint-disable-next-line @typescript-eslint/no-var-requires
+    const idx = require("../../data/kg/vector-index.json") as KGVectorIndex
+    vectorIndex = idx
+    return idx
+  } catch {
+    vectorIndex = null
+    return null
+  }
+}
+
 function normalize(text: string | undefined | null): string {
   return (text || "")
     .toLowerCase()
@@ -45,6 +75,21 @@ function extractIdeaTokens(idea: IdeaInput): string[] {
   return tokenize(parts.join(" "))
 }
 
+// Basic cosine similarity for small vectors; used when vector index is present.
+function cosineSimilarity(a: number[], b: number[]): number {
+  const len = Math.min(a.length, b.length)
+  let dot = 0
+  let na = 0
+  let nb = 0
+  for (let i = 0; i < len; i++) {
+    dot += a[i] * b[i]
+    na += a[i] * a[i]
+    nb += b[i] * b[i]
+  }
+  if (!na || !nb) return 0
+  return dot / (Math.sqrt(na) * Math.sqrt(nb))
+}
+
 function scoreItem(ideaTokens: Set<string>, item: KGItem): number {
   const textTokens = new Set(tokenize(item.text))
   item.tags.forEach((tag) => {
@@ -63,6 +108,31 @@ function scoreItem(ideaTokens: Set<string>, item: KGItem): number {
 export function queryKnowledgeGraph(idea: IdeaInput, limit = 3): KGItem[] {
   const ideaTokens = new Set(extractIdeaTokens(idea))
 
+  // If we have a vector index, use it as the primary signal and fall back
+  // to token overlap to break ties.
+  const idx = loadVectorIndex()
+  if (idx && idx.items.length > 0) {
+    // Build a lightweight embedding from token frequencies for the idea
+    // when we don't have direct embeddings. This is only used to rank
+    // within the local index; quality comes mainly from curated KG items.
+    const tokenArray = Array.from(ideaTokens)
+    const pseudoEmbedding = tokenArray.map((t) => t.length / 10)
+
+    const scored = idx.items
+      .map((entry) => {
+        const baseSim = cosineSimilarity(pseudoEmbedding, entry.embedding)
+        const tagOverlap = entry.tags.some((t) => ideaTokens.has(t.toLowerCase())) ? 1 : 0
+        const matchScore = 0.7 * tagOverlap + 0.3 * baseSim
+        const item = KG_ITEMS.find((k) => k.id === entry.id)
+        return item ? { item, score: matchScore } : null
+      })
+      .filter((x): x is { item: KGItem; score: number } => !!x)
+      .sort((a, b) => b.score - a.score)
+
+    return scored.slice(0, limit).map(({ item }) => item)
+  }
+
+  // Fallback: pure heuristic token overlap on seed KG.
   const scored = KG_ITEMS.map((item) => ({
     item,
     score: scoreItem(ideaTokens, item),
