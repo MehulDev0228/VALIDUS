@@ -1,0 +1,92 @@
+[
+  {
+    "id": "yc-fintech-1",
+    "name": "AI Personal Finance Coach",
+    "type": "startup",
+    "text": "AI-powered personal finance assistant that analyzes spending, builds budgets, and suggests investment strategies for young professionals.",
+    "url": "https://example.com/ai-finance-coach",
+    "tags": ["fintech", "personal-finance", "consumer", "ai", "mobile"],
+    "createdAt": "2023-01-01T00:00:00.000Z"
+  },
+  {
+    "id": "yc-saas-1",
+    "name": "Remote Team Analytics",
+    "type": "startup",
+    "text": "B2B SaaS that aggregates tool usage across Slack, Jira, and GitHub to surface team productivity patterns and risks.",
+    "url": "https://example.com/remote-team-analytics",
+    "tags": ["saas", "b2b", "productivity", "analytics", "remote-work"],
+    "createdAt": "2022-11-10T00:00:00.000Z"
+  },
+  {
+    "id": "yc-edtech-1",
+    "name": "AR STEM Classroom",
+    "type": "startup",
+    "text": "Augmented reality learning platform that turns STEM concepts into interactive 3D experiences for K-12 students.",
+    "url": "https://example.com/ar-stem",
+    "tags": ["edtech", "k12", "ar", "learning", "subscription"],
+    "createdAt": "2021-09-15T00:00:00.000Z"
+  },
+  {
+    "id": "unicorn-marketplace-1",
+    "name": "Local Services Marketplace",
+    "type": "startup",
+    "text": "Two-sided marketplace connecting homeowners with vetted local professionals for repairs and improvements.",
+    "url": "https://example.com/local-services",
+    "tags": ["marketplace", "local-services", "b2c", "home", "bookings"],
+    "createdAt": "2019-05-01T00:00:00.000Z"
+  },
+  {
+    "id": "saas-devtools-1",
+    "name": "API Observability Cloud",
+    "type": "startup",
+    "text": "Developer-first observability platform focused on API latency, reliability, and contract testing.",
+    "url": "https://example.com/api-observability",
+    "tags": ["saas", "devtools", "observability", "b2b", "apis"],
+    "createdAt": "2020-07-20T00:00:00.000Z"
+  },
+  {
+    "id": "failed-generic-ai-1",
+    "name": "Generic AI Dashboard",
+    "type": "startup",
+    "text": "Horizontal AI dashboard that tried to be everything for everyone with weak differentiation and no clear ICP.",
+    "url": "https://example.com/generic-ai-dashboard-postmortem",
+    "tags": ["failed", "generic", "dashboard", "ai", "horizontal"],
+    "createdAt": "2018-03-10T00:00:00.000Z"
+  },
+  {
+    "id": "yc-healthtech-1",
+    "name": "Chronic Care Companion",
+    "type": "startup",
+    "text": "Digital health companion app that tracks symptoms, meds, and care plans for patients with chronic conditions.",
+    "url": "https://example.com/chronic-care-companion",
+    "tags": ["healthtech", "chronic-care", "b2c", "mobile", "subscription"],
+    "createdAt": "2022-03-05T00:00:00.000Z"
+  },
+  {
+    "id": "yc-b2b-fintech-1",
+    "name": "SMB Revenue-Based Financing",
+    "type": "startup",
+    "text": "Financing platform that advances capital to SaaS SMBs based on recurring revenue, repaid as a percentage of future revenue.",
+    "url": "https://example.com/rbf-saas",
+    "tags": ["fintech", "rbf", "smb", "saas", "lending"],
+    "createdAt": "2021-01-12T00:00:00.000Z"
+  },
+  {
+    "id": "yc-gaming-1",
+    "name": "UGC Game Platform",
+    "type": "startup",
+    "text": "Cross-platform game creation toolkit that lets players build and share mini-games with friends.",
+    "url": "https://example.com/ugc-gaming",
+    "tags": ["gaming", "ugc", "platform", "social", "creator"],
+    "createdAt": "2020-10-30T00:00:00.000Z"
+  },
+  {
+    "id": "yc-social-1",
+    "name": "Audio-first Communities",
+    "type": "startup",
+    "text": "Vertical social network built around recurring audio rooms for niche professional communities.",
+    "url": "https://example.com/audio-communities",
+    "tags": ["social", "audio", "communities", "professional", "network"],
+    "createdAt": "2021-04-18T00:00:00.000Z"
+  }
+]
