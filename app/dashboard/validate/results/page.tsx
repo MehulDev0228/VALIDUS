@@ -6,7 +6,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Button } from "@/components/ui/button"
 import { DashboardSidebar } from "@/components/dashboard-sidebar"
 import { runPremiumValidationClient, getStoredOpenAIApiKey, storeOpenAIApiKey } from "@/lib/agents/client-byo"
-import { AlertTriangle } from "lucide-react"
+import { AlertTriangle, ArrowLeft, Share, Download, DollarSign, TrendingUp, Target, Users, BarChart3, CheckCircle, Lightbulb } from "lucide-react"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
 
@@ -17,6 +17,10 @@ export default function ValidationResultsPage() {
   const [premiumError, setPremiumError] = useState<string | null>(null)
   const [premiumSummary, setPremiumSummary] = useState<string | null>(null)
   const [clientApiKey, setClientApiKey] = useState<string>("")
+  const [serverPremiumLoading, setServerPremiumLoading] = useState(false)
+  const [serverPremiumError, setServerPremiumError] = useState<string | null>(null)
+  const [checkoutLoading, setCheckoutLoading] = useState(false)
+  const [checkoutError, setCheckoutError] = useState<string | null>(null)
   const router = useRouter()
 
   useEffect(() => {
@@ -300,6 +304,99 @@ export default function ValidationResultsPage() {
       setPremiumError(err?.message || "Premium validation failed. Check your API key and try again.")
     } finally {
       setPremiumLoading(false)
+    }
+  }
+
+  const handleRunPremiumServer = async () => {
+    setServerPremiumError(null)
+
+    let ideaPayload: any = null
+    try {
+      const stored = typeof window !== "undefined" ? localStorage.getItem("lastIdeaInput") : null
+      if (!stored) {
+        setServerPremiumError("Original idea input not found. Please re-run a free validation first.")
+        return
+      }
+      ideaPayload = JSON.parse(stored)
+    } catch {
+      setServerPremiumError("Could not read last idea input from local storage.")
+      return
+    }
+
+    try {
+      setServerPremiumLoading(true)
+      const res = await fetch("/api/premium/validate", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ idea_data: ideaPayload, mode: "oneoff" }),
+      })
+
+      if (res.status === 401) {
+        setServerPremiumError("Sign in required. Please log in and try again.")
+        return
+      }
+
+      if (res.status === 402) {
+        const data = await res.json().catch(() => null)
+        setServerPremiumError(data?.error || "No premium credits available. Purchase one and try again.")
+        return
+      }
+
+      if (!res.ok) {
+        setServerPremiumError("Server premium validation failed. Please try again later.")
+        return
+      }
+
+      const data = await res.json()
+      if (typeof window !== "undefined") {
+        try {
+          localStorage.setItem("premiumValidationResults", JSON.stringify(data.validation_results))
+        } catch {
+          // ignore
+        }
+      }
+      router.push("/dashboard/premium-results")
+    } catch (err: any) {
+      setServerPremiumError(err?.message || "Server premium validation failed.")
+    } finally {
+      setServerPremiumLoading(false)
+    }
+  }
+
+  const handleBuyPremiumCredit = async () => {
+    setCheckoutError(null)
+
+    try {
+      setCheckoutLoading(true)
+      const res = await fetch("/api/billing/create-checkout-session", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ mode: "oneoff" }),
+      })
+
+      if (res.status === 401) {
+        setCheckoutError("Sign in required. Please log in and try again.")
+        return
+      }
+
+      if (!res.ok) {
+        const data = await res.json().catch(() => null)
+        setCheckoutError(data?.error || "Unable to start Stripe checkout. Please try again.")
+        return
+      }
+
+      const data = await res.json()
+      if (data?.url) {
+        if (typeof window !== "undefined") {
+          window.location.href = data.url as string
+        }
+      } else {
+        setCheckoutError("Stripe checkout URL missing from response.")
+      }
+    } catch (err: any) {
+      setCheckoutError(err?.message || "Failed to start Stripe checkout.")
+    } finally {
+      setCheckoutLoading(false)
     }
   }
 
@@ -789,7 +886,7 @@ export default function ValidationResultsPage() {
                             className="w-full rounded-md bg-black/40 border border-white/10 px-3 py-2 text-xs text-gray-100 placeholder:text-gray-500 focus:outline-none focus:ring-1 focus:ring-cyan-500"
                             placeholder="sk-..."
                           />
-                          <div className="flex items-center justify-between">
+                          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
                             <Button
                               size="sm"
                               className="bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-600 hover:to-blue-700 text-white border-0 text-xs"
@@ -798,12 +895,37 @@ export default function ValidationResultsPage() {
                             >
                               {premiumLoading ? "Running..." : "Run Deep Premium in Browser"}
                             </Button>
-                            {premiumSummary && !premiumLoading && (
-                              <span className="text-[11px] text-green-400 ml-2">Premium summary updated below.</span>
-                            )}
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              className="border-cyan-500/60 text-cyan-300 hover:bg-cyan-500/10 text-xs"
+                              disabled={serverPremiumLoading}
+                              onClick={handleRunPremiumServer}
+                            >
+                              {serverPremiumLoading ? "Running on Server..." : "Run Premium on Server (Paid)"}
+                            </Button>
                           </div>
+                          <div className="flex flex-col gap-1 mt-1">
+                            <button
+                              type="button"
+                              onClick={handleBuyPremiumCredit}
+                              disabled={checkoutLoading}
+                              className="self-start text-[11px] text-cyan-300 hover:text-cyan-200 underline disabled:opacity-60"
+                            >
+                              {checkoutLoading ? "Opening Stripe checkout..." : "Need credits? Buy a premium validation"}
+                            </button>
+                          </div>
+                          {premiumSummary && !premiumLoading && (
+                            <span className="text-[11px] text-green-400">Premium summary updated below.</span>
+                          )}
                           {premiumError && (
                             <p className="text-[11px] text-red-400 mt-1">{premiumError}</p>
+                          )}
+                          {serverPremiumError && (
+                            <p className="text-[11px] text-red-400 mt-1">{serverPremiumError}</p>
+                          )}
+                          {checkoutError && (
+                            <p className="text-[11px] text-red-400 mt-1">{checkoutError}</p>
                           )}
                           {premiumSummary && (
                             <p className="text-[11px] text-gray-300 mt-2">
@@ -812,7 +934,6 @@ export default function ValidationResultsPage() {
                             </p>
                           )}
                         </div>
-                      </div>
                       </div>
                     </div>
                     <div>
@@ -832,7 +953,8 @@ export default function ValidationResultsPage() {
             </motion.div>
           </div>
 
-          {/* Red Flags & Pivot Sugg          <motion.div
+          {/* Red Flags & Pivot Suggestions */}
+          <motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.6, delay: 0.85 }}

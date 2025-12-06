@@ -52,6 +52,7 @@ export async function createPremiumValidationCheckoutSession(params: CreateCheck
     metadata: {
       userId: params.userId,
       useMode: "server-proxy",
+      billingMode: params.mode,
     },
   })
 

@@ -10,7 +10,7 @@ export async function POST(request: NextRequest) {
     const body = await request.json()
 
     const idea_data = body?.idea_data as Partial<IdeaInput> | undefined
-    const billingToken = body?.billingToken as string | undefined
+    const mode = (body?.mode as "oneoff" | "subscription" | undefined) ?? "oneoff"
 
     // Require auth for premium validations (server-proxy mode).
     const session = await getAuthSession()
@@ -25,10 +25,26 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // TODO: enforce auth + real billing token verification (Stripe).
-    if (!billingToken) {
+    // Enforce entitlements: either active subscription or a one-off credit.
+    const userId = session.user.id as string
+
+    // Dynamically import entitlement helpers to keep this route usable even if Supabase is not configured.
+    const { hasActiveSubscriptionEntitlement, consumeOnePremiumEntitlement } = await import("@/lib/entitlements")
+
+    const hasSubscription = await hasActiveSubscriptionEntitlement(userId)
+    let entitlementOk = hasSubscription
+
+    if (!entitlementOk && mode === "oneoff") {
+      entitlementOk = await consumeOnePremiumEntitlement(userId)
+    }
+
+    if (!entitlementOk) {
       return NextResponse.json(
-        { success: false, error: "Billing token is required for premium validation" },
+        {
+          success: false,
+          error:
+            "No premium credits available. Purchase a premium validation first, or use the browser-based BYO-key flow.",
+        },
         { status: 402 },
       )
     }
