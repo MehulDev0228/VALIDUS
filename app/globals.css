@@ -2,93 +2,272 @@
 @tailwind components;
 @tailwind utilities;
 
-body {
-  font-family: Arial, Helvetica, sans-serif;
+@layer base {
+  :root {
+    --ink-0: 6 7 10;
+    --ink-1: 11 13 17;
+    --ink-2: 15 17 22;
+
+    --bone-0: 245 245 242;
+    --bone-1: 154 154 149;
+    --bone-2: 92 92 88;
+
+    --rule: 245 245 242;
+    --rule-strong: 245 245 242;
+
+    --verdict-build: 184 229 50;
+    --verdict-pivot: 242 162 48;
+    --verdict-kill: 255 59 45;
+
+    --background: 6 7 10;
+    --foreground: 245 245 242;
+    --card: 11 13 17;
+    --card-foreground: 245 245 242;
+    --popover: 6 7 10;
+    --popover-foreground: 245 245 242;
+    --primary: 245 245 242;
+    --primary-foreground: 6 7 10;
+    --secondary: 11 13 17;
+    --secondary-foreground: 245 245 242;
+    --muted: 11 13 17;
+    --muted-foreground: 154 154 149;
+    --accent: 11 13 17;
+    --accent-foreground: 245 245 242;
+    --destructive: 255 59 45;
+    --destructive-foreground: 245 245 242;
+    --border: 245 245 242;
+    --input: 245 245 242;
+    --ring: 245 245 242;
+    --radius: 0;
+  }
+
+  * {
+    border-color: rgb(245 245 242 / 0.06);
+  }
+
+  html,
+  body {
+    background-color: rgb(var(--ink-0));
+    color: rgb(var(--bone-0));
+  }
+
+  body {
+    font-feature-settings: "ss01", "ss02", "cv01", "cv11";
+    font-synthesis: none;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    text-rendering: optimizeLegibility;
+  }
+
+  ::selection {
+    background-color: rgb(245 245 242);
+    color: rgb(6 7 10);
+  }
+
+  /* Scrollbar — minimal, hairline */
+  ::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+  }
+  ::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  ::-webkit-scrollbar-thumb {
+    background: rgb(245 245 242 / 0.08);
+  }
+  ::-webkit-scrollbar-thumb:hover {
+    background: rgb(245 245 242 / 0.16);
+  }
 }
 
 @layer utilities {
   .text-balance {
     text-wrap: balance;
   }
-}
 
-@layer base {
-  :root {
-    --background: 0 0% 100%;
-    --foreground: 0 0% 3.9%;
-    --card: 0 0% 100%;
-    --card-foreground: 0 0% 3.9%;
-    --popover: 0 0% 100%;
-    --popover-foreground: 0 0% 3.9%;
-    --primary: 0 0% 9%;
-    --primary-foreground: 0 0% 98%;
-    --secondary: 0 0% 96.1%;
-    --secondary-foreground: 0 0% 9%;
-    --muted: 0 0% 96.1%;
-    --muted-foreground: 0 0% 45.1%;
-    --accent: 0 0% 96.1%;
-    --accent-foreground: 0 0% 9%;
-    --destructive: 0 84.2% 60.2%;
-    --destructive-foreground: 0 0% 98%;
-    --border: 0 0% 89.8%;
-    --input: 0 0% 89.8%;
-    --ring: 0 0% 3.9%;
-    --chart-1: 12 76% 61%;
-    --chart-2: 173 58% 39%;
-    --chart-3: 197 37% 24%;
-    --chart-4: 43 74% 66%;
-    --chart-5: 27 87% 67%;
-    --radius: 0.5rem;
-    --sidebar-background: 0 0% 98%;
-    --sidebar-foreground: 240 5.3% 26.1%;
-    --sidebar-primary: 240 5.9% 10%;
-    --sidebar-primary-foreground: 0 0% 98%;
-    --sidebar-accent: 240 4.8% 95.9%;
-    --sidebar-accent-foreground: 240 5.9% 10%;
-    --sidebar-border: 220 13% 91%;
-    --sidebar-ring: 217.2 91.2% 59.8%;
+  .text-pretty {
+    text-wrap: pretty;
   }
-  .dark {
-    --background: 0 0% 3.9%;
-    --foreground: 0 0% 98%;
-    --card: 0 0% 3.9%;
-    --card-foreground: 0 0% 98%;
-    --popover: 0 0% 3.9%;
-    --popover-foreground: 0 0% 98%;
-    --primary: 0 0% 98%;
-    --primary-foreground: 0 0% 9%;
-    --secondary: 0 0% 14.9%;
-    --secondary-foreground: 0 0% 98%;
-    --muted: 0 0% 14.9%;
-    --muted-foreground: 0 0% 63.9%;
-    --accent: 0 0% 14.9%;
-    --accent-foreground: 0 0% 98%;
-    --destructive: 0 62.8% 30.6%;
-    --destructive-foreground: 0 0% 98%;
-    --border: 0 0% 14.9%;
-    --input: 0 0% 14.9%;
-    --ring: 0 0% 83.1%;
-    --chart-1: 220 70% 50%;
-    --chart-2: 160 60% 45%;
-    --chart-3: 30 80% 55%;
-    --chart-4: 280 65% 60%;
-    --chart-5: 340 75% 55%;
-    --sidebar-background: 240 5.9% 10%;
-    --sidebar-foreground: 240 4.8% 95.9%;
-    --sidebar-primary: 224.3 76.3% 48%;
-    --sidebar-primary-foreground: 0 0% 100%;
-    --sidebar-accent: 240 3.7% 15.9%;
-    --sidebar-accent-foreground: 240 4.8% 95.9%;
-    --sidebar-border: 240 3.7% 15.9%;
-    --sidebar-ring: 217.2 91.2% 59.8%;
-  }
-}
 
-@layer base {
-  * {
-    @apply border-border;
+  /* Hairline rule — full-bleed 1px line */
+  .hairline {
+    background-color: rgb(245 245 242 / 0.06);
   }
-  body {
-    @apply bg-background text-foreground;
+  .hairline-strong {
+    background-color: rgb(245 245 242 / 0.16);
+  }
+
+  /* Tabular numerals for scores, deltas, days */
+  .tabular {
+    font-variant-numeric: tabular-nums;
+    font-feature-settings: "tnum";
+  }
+
+  /* Editorial display tracking */
+  .display-xl {
+    letter-spacing: -0.04em;
+    line-height: 0.95;
+  }
+  .display-l {
+    letter-spacing: -0.035em;
+    line-height: 1;
+  }
+  .display-m {
+    letter-spacing: -0.03em;
+    line-height: 1.05;
+  }
+
+  /* Mono caption — uppercase forensic label */
+  .mono-caption {
+    font-family: var(--font-mono);
+    font-size: 11px;
+    line-height: 1.3;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: rgb(154 154 149);
+  }
+
+  /* Hairline-bordered tab CTA — primary action affordance */
+  .tab-cta {
+    position: relative;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.75rem;
+    padding: 0.875rem 1.5rem;
+    font-family: var(--font-mono);
+    font-size: 11px;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: rgb(245 245 242);
+    border: 1px solid rgb(245 245 242 / 0.2);
+    background: transparent;
+    overflow: hidden;
+    transition: color 220ms cubic-bezier(0.32, 0.72, 0, 1),
+      border-color 220ms cubic-bezier(0.32, 0.72, 0, 1);
+    cursor: pointer;
+  }
+  .tab-cta::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    background: rgb(245 245 242);
+    transform: translateX(-101%);
+    transition: transform 280ms cubic-bezier(0.32, 0.72, 0, 1);
+    z-index: 0;
+  }
+  .tab-cta > * {
+    position: relative;
+    z-index: 1;
+    transition: color 220ms cubic-bezier(0.32, 0.72, 0, 1);
+  }
+  .tab-cta:hover::before {
+    transform: translateX(0);
+  }
+  .tab-cta:hover {
+    color: rgb(6 7 10);
+    border-color: rgb(245 245 242);
+  }
+  .tab-cta:hover .tab-cta-arrow {
+    transform: translateX(8px);
+  }
+  .tab-cta-arrow {
+    transition: transform 220ms cubic-bezier(0.32, 0.72, 0, 1);
+  }
+
+  /* Secondary tab — quieter, no fill */
+  .tab-cta-quiet {
+    border-color: rgb(245 245 242 / 0.1);
+  }
+  .tab-cta-quiet:hover {
+    border-color: rgb(245 245 242 / 0.4);
+    color: rgb(245 245 242);
+  }
+  .tab-cta-quiet::before {
+    display: none;
+  }
+
+  /* Architectural grid background */
+  .grid-architecture {
+    background-image: linear-gradient(
+        to right,
+        rgb(245 245 242 / 0.03) 1px,
+        transparent 1px
+      ),
+      linear-gradient(to bottom, rgb(245 245 242 / 0.03) 1px, transparent 1px);
+    background-size: 80px 80px;
+  }
+
+  /* Verdict pulse line — used in nav bottom */
+  .verdict-pulse-track {
+    position: relative;
+    overflow: hidden;
+  }
+  .verdict-pulse-track::after {
+    content: "";
+    position: absolute;
+    top: 0;
+    left: -60px;
+    width: 60px;
+    height: 100%;
+    background: linear-gradient(
+      to right,
+      transparent,
+      rgb(245 245 242 / 0.4),
+      transparent
+    );
+    animation: verdict-pulse 6s linear infinite;
+  }
+
+  @keyframes verdict-pulse {
+    0% {
+      transform: translateX(0);
+    }
+    13% {
+      transform: translateX(100vw);
+    }
+    100% {
+      transform: translateX(100vw);
+    }
+  }
+
+  /* Marquee for verdict tape */
+  @keyframes marquee-x {
+    from {
+      transform: translateX(0);
+    }
+    to {
+      transform: translateX(-50%);
+    }
+  }
+  .marquee-track {
+    animation: marquee-x 80s linear infinite;
+  }
+  .marquee-track:hover {
+    animation-play-state: paused;
+  }
+
+  /* Page route sweep — 2px line across viewport */
+  @keyframes page-sweep {
+    0% {
+      transform: translateX(-100%);
+    }
+    100% {
+      transform: translateX(100%);
+    }
+  }
+
+  /* Reduced motion */
+  @media (prefers-reduced-motion: reduce) {
+    .verdict-pulse-track::after,
+    .marquee-track {
+      animation: none !important;
+    }
+    *,
+    *::before,
+    *::after {
+      animation-duration: 0.001ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.001ms !important;
+    }
   }
 }

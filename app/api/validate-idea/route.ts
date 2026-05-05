@@ -2,12 +2,13 @@ import { type NextRequest, NextResponse } from "next/server"
 import { IdeaInputSchema, type IdeaInput } from "@/lib/schemas/idea"
 import { runFreeValidation } from "@/lib/agents/free-validator"
 import { getCachedFreeValidation, setCachedFreeValidation } from "@/lib/cache"
-import { canConsumeFreeValidation, recordFreeValidation, getClientIpFromRequest } from "@/lib/rate-limit"
+import { canConsumeFreeValidation, recordFreeValidation, getClientIpFromRequest, buildRateLimitKey } from "@/lib/rate-limit"
 
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json()
     const idea_data = body?.idea_data as Partial<IdeaInput> | undefined
+    const fingerprint = (body?.fingerprint as string | undefined)?.slice(0, 128) || null
 
     if (!idea_data) {
       return NextResponse.json(
@@ -39,17 +40,19 @@ export async function POST(request: NextRequest) {
 
     const idea: IdeaInput = parseResult.data
 
-    // Rate limit: one free validation per IP per 24h (best-effort; replace with shared store in production).
+    // Rate limit: strict free validations per day using durable keying.
     const ip = getClientIpFromRequest(request as any)
-    if (!canConsumeFreeValidation(ip)) {
+    const rateKey = buildRateLimitKey(ip, fingerprint)
+    if (!(await canConsumeFreeValidation(rateKey))) {
       return NextResponse.json(
         {
           success: false,
-          error: "Free validation limit reached for today. Please try again tomorrow or use a premium run.",
+          error: "Daily limit reached (2 ideas/day). Try again tomorrow.",
         },
         { status: 429 },
       )
     }
+    await recordFreeValidation(rateKey)
 
     // Cache by normalized idea hash for fast repeated runs.
     const cached = getCachedFreeValidation(idea)
@@ -78,7 +81,6 @@ export async function POST(request: NextRequest) {
     // Premium modes will use a separate /api/premium/validate route.
     const freeResult = await runFreeValidation(idea)
 
-    recordFreeValidation(ip)
     setCachedFreeValidation(idea, freeResult)
 
     return NextResponse.json(

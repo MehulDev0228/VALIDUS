@@ -1,25 +1,31 @@
 "use client"
 
 import type React from "react"
-import { useState, useEffect } from "react"
-import { motion } from "framer-motion"
-import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
-import { Label } from "@/components/ui/label"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { useAuth } from "@/contexts/auth-context"
-import { useRouter } from "next/navigation"
-import { Loader2, Sparkles, Eye, EyeOff, AlertCircle, CheckCircle } from 'lucide-react'
+import { useEffect, useState } from "react"
 import Link from "next/link"
+import { motion, AnimatePresence } from "framer-motion"
+import { useRouter } from "next/navigation"
+import { useAuth } from "@/contexts/auth-context"
+import { microcopy } from "@/lib/microcopy"
+import { ease } from "@/lib/motion"
 
+type Tab = "in" | "up"
+
+/**
+ * AuthPage — single-column editorial intake.
+ *
+ * Two modes (sign in / sign up) sit on a hairline-ruled stack. Errors are
+ * forensic ("REFUSED — …"), success messages are forensic ("ACCEPTED — …").
+ * No card chrome, no glow, no gradients.
+ */
 export default function AuthPage() {
-  const [isLoading, setIsLoading] = useState(false)
-  const [showPassword, setShowPassword] = useState(false)
-  const [error, setError] = useState("")
-  const [success, setSuccess] = useState("")
   const { signIn, signUp, signInWithGoogle, user, loading } = useAuth()
   const router = useRouter()
+
+  const [tab, setTab] = useState<Tab>("in")
+  const [submitting, setSubmitting] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+  const [success, setSuccess] = useState<string | null>(null)
 
   useEffect(() => {
     if (user && !loading) {
@@ -27,316 +33,289 @@ export default function AuthPage() {
     }
   }, [user, loading, router])
 
-  const handleSignIn = async (e: React.FormEvent<HTMLFormElement>) => {
+  async function handleSignIn(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault()
-    setIsLoading(true)
-    setError("")
-    setSuccess("")
-
-    const formData = new FormData(e.currentTarget)
-    const email = formData.get("email") as string
-    const password = formData.get("password") as string
-
+    setError(null)
+    setSuccess(null)
+    setSubmitting(true)
+    const data = new FormData(e.currentTarget)
+    const email = String(data.get("email") || "")
+    const password = String(data.get("password") || "")
     if (!email || !password) {
-      setError("Please fill in all fields")
-      setIsLoading(false)
+      setError("Provide both fields. The system does not infer.")
+      setSubmitting(false)
       return
     }
-
     const result = await signIn(email, password)
-
-    if (result.error) {
-      setError(result.error)
-    } else {
-      setSuccess("Sign in successful! Redirecting...")
-      setTimeout(() => {
-        router.push("/dashboard")
-      }, 1000)
+    if (result.error) setError(result.error)
+    else {
+      setSuccess("Accepted. Routing to ledger.")
+      setTimeout(() => router.push("/dashboard"), 600)
     }
-
-    setIsLoading(false)
+    setSubmitting(false)
   }
 
-  const handleSignUp = async (e: React.FormEvent<HTMLFormElement>) => {
+  async function handleSignUp(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault()
-    setIsLoading(true)
-    setError("")
-    setSuccess("")
-
-    const formData = new FormData(e.currentTarget)
-    const email = formData.get("email") as string
-    const password = formData.get("password") as string
-    const fullName = formData.get("fullName") as string
-
+    setError(null)
+    setSuccess(null)
+    setSubmitting(true)
+    const data = new FormData(e.currentTarget)
+    const email = String(data.get("email") || "")
+    const password = String(data.get("password") || "")
+    const fullName = String(data.get("fullName") || "")
     if (!email || !password || !fullName) {
-      setError("Please fill in all fields")
-      setIsLoading(false)
+      setError("All three fields. No optional substance.")
+      setSubmitting(false)
       return
     }
-
     if (password.length < 6) {
-      setError("Password must be at least 6 characters")
-      setIsLoading(false)
+      setError("Password too short. Six characters minimum.")
+      setSubmitting(false)
       return
     }
-
     const result = await signUp(email, password, fullName)
-
-    if (result.error) {
-      setError(result.error)
-    } else {
-      setSuccess("Account created successfully!")
-    }
-
-    setIsLoading(false)
+    if (result.error) setError(result.error)
+    else setSuccess("Accepted. Check your email to confirm.")
+    setSubmitting(false)
   }
 
-  const handleGoogleSignIn = async () => {
-    setIsLoading(true)
-    setError("")
+  async function handleGoogle() {
+    setError(null)
+    setSuccess(null)
+    setSubmitting(true)
     try {
       await signInWithGoogle()
-    } catch (error) {
-      setError("Google sign in failed")
+    } catch {
+      setError("Google sign-in refused.")
     }
-    setIsLoading(false)
-  }
-
-  if (loading) {
-    return (
-      <div className="min-h-screen bg-black flex items-center justify-center">
-        <div className="text-center">
-          <Loader2 className="w-8 h-8 animate-spin text-cyan-400 mx-auto mb-4" />
-          <p className="text-gray-400">Loading...</p>
-        </div>
-      </div>
-    )
+    setSubmitting(false)
   }
 
   return (
-    <div className="min-h-screen bg-black flex items-center justify-center p-4 relative overflow-hidden">
-      {/* Background Effects */}
-      <div className="absolute inset-0">
-        <div className="absolute top-1/4 left-1/4 w-96 h-96 bg-gradient-to-r from-cyan-500/10 to-blue-500/10 rounded-full blur-3xl" />
-        <div className="absolute bottom-1/4 right-1/4 w-96 h-96 bg-gradient-to-r from-blue-500/10 to-purple-500/10 rounded-full blur-3xl" />
-        <div className="absolute inset-0 bg-[linear-gradient(rgba(6,182,212,0.05)_1px,transparent_1px),linear-gradient(90deg,rgba(6,182,212,0.05)_1px,transparent_1px)] bg-[size:50px_50px]" />
-      </div>
-
-      <motion.div
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.6 }}
-        className="relative z-10 w-full max-w-md"
-      >
-        {/* Logo */}
-        <div className="text-center mb-8">
-          <Link href="/" className="inline-flex items-center space-x-2">
-            <div className="relative">
-              <div className="w-12 h-12 bg-gradient-to-r from-cyan-400 to-blue-500 rounded-xl flex items-center justify-center">
-                <Sparkles className="w-7 h-7 text-black" />
-              </div>
-              <div className="absolute -inset-1 bg-gradient-to-r from-cyan-400 to-blue-500 rounded-xl blur opacity-30 animate-pulse"></div>
-            </div>
-            <span className="text-2xl font-bold bg-gradient-to-r from-cyan-400 to-blue-500 bg-clip-text text-transparent">
-              FutureValidate
+    <div className="min-h-screen bg-ink-0 text-bone-0">
+      {/* Top brand strip */}
+      <header className="border-b border-bone-0/[0.06]">
+        <div className="mx-auto flex h-16 max-w-[1200px] items-center justify-between px-6 md:px-10">
+          <Link href="/" className="flex items-center gap-3" data-cursor="cite">
+            <span className="h-2 w-2 bg-bone-0" />
+            <span className="mono-caption text-bone-0">
+              Future<span className="text-bone-1">/</span>Validate
             </span>
           </Link>
+          <Link href="/" className="mono-caption text-bone-2 hover:text-bone-0">
+            ← marketing
+          </Link>
         </div>
+      </header>
 
-        <Card className="bg-white/5 backdrop-blur-xl border-white/10 shadow-2xl">
-          <CardHeader className="text-center">
-            <CardTitle className="text-2xl font-bold text-white">Welcome</CardTitle>
-            <CardDescription className="text-gray-400">Sign in to your account or create a new one</CardDescription>
-          </CardHeader>
-          <CardContent>
-            {/* Google Sign In Button */}
-            <Button
-              onClick={handleGoogleSignIn}
-              disabled={isLoading}
-              variant="outline"
-              className="w-full mb-6 border-white/20 text-white hover:bg-white/10"
+      <main className="mx-auto grid max-w-[1200px] grid-cols-1 gap-12 px-6 pt-20 pb-32 md:grid-cols-12 md:gap-16 md:px-10">
+        <motion.section
+          initial={{ opacity: 0, y: 12 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.6, ease: ease.editorial }}
+          className="md:col-span-5"
+        >
+          <p className="mono-caption">Identity intake</p>
+          <h1 className="mt-6 font-serif text-[clamp(36px,4.5vw,56px)] leading-[1.05] tracking-[-0.025em]">
+            {tab === "in" ? "Return to the ledger." : "Open a session."}
+          </h1>
+          <p className="mt-6 max-w-[420px] text-[16px] leading-[1.6] text-bone-1">
+            {tab === "in"
+              ? "Identity is optional — anonymous filings still work. Sign in only if you want your ledger synced across devices."
+              : "Optional. The system files memos with or without you. An account just keeps your ledger in one place."}
+          </p>
+
+          <div className="mt-10 inline-flex border border-bone-0/10">
+            <TabButton active={tab === "in"} onClick={() => setTab("in")}>
+              Sign in
+            </TabButton>
+            <TabButton active={tab === "up"} onClick={() => setTab("up")}>
+              Open account
+            </TabButton>
+          </div>
+        </motion.section>
+
+        <motion.section
+          initial={{ opacity: 0, y: 12 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.7, delay: 0.1, ease: ease.editorial }}
+          className="md:col-span-7"
+        >
+          <div className="border border-bone-0/10 bg-ink-1 p-8 md:p-10">
+            <button
+              type="button"
+              onClick={handleGoogle}
+              disabled={submitting}
+              className="flex w-full items-center justify-between border border-bone-0/10 px-4 py-3 text-left transition-colors hover:border-bone-0/40"
+              data-cursor="file"
             >
-              {isLoading ? (
-                <Loader2 className="w-4 h-4 animate-spin mr-2" />
-              ) : (
-                <svg className="w-4 h-4 mr-2" viewBox="0 0 24 24">
-                  <path
-                    fill="currentColor"
-                    d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"
-                  />
-                  <path
-                    fill="currentColor"
-                    d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"
-                  />
-                  <path
-                    fill="currentColor"
-                    d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"
-                  />
-                  <path
-                    fill="currentColor"
-                    d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"
-                  />
-                </svg>
-              )}
-              Continue with Google
-            </Button>
+              <span className="flex items-center gap-3">
+                <span className="grid h-5 w-5 place-items-center bg-bone-0">
+                  <svg width="11" height="11" viewBox="0 0 24 24">
+                    <path
+                      fill="rgb(6,7,10)"
+                      d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"
+                    />
+                    <path
+                      fill="rgb(6,7,10)"
+                      d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"
+                    />
+                    <path
+                      fill="rgb(6,7,10)"
+                      d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"
+                    />
+                    <path
+                      fill="rgb(6,7,10)"
+                      d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"
+                    />
+                  </svg>
+                </span>
+                <span className="text-[15px] text-bone-0">Continue with Google</span>
+              </span>
+              <span className="mono-caption text-bone-2">→</span>
+            </button>
 
-            <div className="relative mb-6">
-              <div className="absolute inset-0 flex items-center">
-                <span className="w-full border-t border-white/20" />
-              </div>
-              <div className="relative flex justify-center text-xs uppercase">
-                <span className="bg-black px-2 text-gray-400">Or continue with email</span>
-              </div>
+            <div className="my-8 flex items-center gap-4">
+              <span className="h-px flex-1 bg-bone-0/10" />
+              <span className="mono-caption text-bone-2">or use email</span>
+              <span className="h-px flex-1 bg-bone-0/10" />
             </div>
 
-            <Tabs defaultValue="signin" className="w-full">
-              <TabsList className="grid w-full grid-cols-2 bg-white/5 border border-white/10">
-                <TabsTrigger
-                  value="signin"
-                  className="data-[state=active]:bg-cyan-500/20 data-[state=active]:text-cyan-300 text-gray-400"
+            <AnimatePresence mode="wait">
+              {tab === "in" ? (
+                <motion.form
+                  key="in"
+                  initial={{ opacity: 0, y: 8 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: -8 }}
+                  transition={{ duration: 0.32, ease: ease.editorial }}
+                  onSubmit={handleSignIn}
+                  className="space-y-6"
                 >
-                  Sign In
-                </TabsTrigger>
-                <TabsTrigger
-                  value="signup"
-                  className="data-[state=active]:bg-cyan-500/20 data-[state=active]:text-cyan-300 text-gray-400"
+                  <Field label="Email" name="email" type="email" autoComplete="email" />
+                  <Field label="Password" name="password" type="password" autoComplete="current-password" />
+                  <Submit submitting={submitting} label="Sign in" />
+                </motion.form>
+              ) : (
+                <motion.form
+                  key="up"
+                  initial={{ opacity: 0, y: 8 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: -8 }}
+                  transition={{ duration: 0.32, ease: ease.editorial }}
+                  onSubmit={handleSignUp}
+                  className="space-y-6"
                 >
-                  Sign Up
-                </TabsTrigger>
-              </TabsList>
-
-              {error && (
-                <div className="mt-4 p-3 bg-red-500/10 border border-red-500/20 rounded-lg flex items-center space-x-2">
-                  <AlertCircle className="w-4 h-4 text-red-400" />
-                  <span className="text-red-400 text-sm">{error}</span>
-                </div>
+                  <Field label="Full name" name="fullName" type="text" autoComplete="name" />
+                  <Field label="Email" name="email" type="email" autoComplete="email" />
+                  <Field
+                    label="Password"
+                    name="password"
+                    type="password"
+                    autoComplete="new-password"
+                    hint="six characters minimum"
+                  />
+                  <Submit submitting={submitting} label="Open account" />
+                </motion.form>
               )}
+            </AnimatePresence>
 
-              {success && (
-                <div className="mt-4 p-3 bg-green-500/10 border border-green-500/20 rounded-lg flex items-center space-x-2">
-                  <CheckCircle className="w-4 h-4 text-green-400" />
-                  <span className="text-green-400 text-sm">{success}</span>
-                </div>
-              )}
+            {error && (
+              <motion.div
+                initial={{ opacity: 0, y: 6 }}
+                animate={{ opacity: 1, y: 0 }}
+                className="mt-6 border-l-2 border-verdict-kill bg-verdict-kill/[0.04] px-4 py-3"
+                role="alert"
+              >
+                <span className="mono-caption text-verdict-kill">REFUSED</span>
+                <p className="mt-1 text-[14px] text-bone-0">{error}</p>
+              </motion.div>
+            )}
+            {success && (
+              <motion.div
+                initial={{ opacity: 0, y: 6 }}
+                animate={{ opacity: 1, y: 0 }}
+                className="mt-6 border-l-2 border-verdict-build bg-verdict-build/[0.04] px-4 py-3"
+              >
+                <span className="mono-caption text-verdict-build">ACCEPTED</span>
+                <p className="mt-1 text-[14px] text-bone-0">{success}</p>
+              </motion.div>
+            )}
+          </div>
 
-              <TabsContent value="signin" className="space-y-4 mt-6">
-                <form onSubmit={handleSignIn} className="space-y-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="signin-email" className="text-gray-300">
-                      Email
-                    </Label>
-                    <Input
-                      id="signin-email"
-                      name="email"
-                      type="email"
-                      placeholder="Enter your email"
-                      required
-                      className="bg-white/5 border-white/20 text-white placeholder:text-gray-500 focus:border-cyan-500 focus:ring-cyan-500/20"
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="signin-password" className="text-gray-300">
-                      Password
-                    </Label>
-                    <div className="relative">
-                      <Input
-                        id="signin-password"
-                        name="password"
-                        type={showPassword ? "text" : "password"}
-                        placeholder="Enter your password"
-                        required
-                        className="bg-white/5 border-white/20 text-white placeholder:text-gray-500 focus:border-cyan-500 focus:ring-cyan-500/20 pr-10"
-                      />
-                      <Button
-                        type="button"
-                        variant="ghost"
-                        size="sm"
-                        className="absolute right-0 top-0 h-full px-3 text-gray-400 hover:text-gray-300"
-                        onClick={() => setShowPassword(!showPassword)}
-                      >
-                        {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-                      </Button>
-                    </div>
-                  </div>
-                  <Button
-                    type="submit"
-                    disabled={isLoading}
-                    className="w-full bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-600 hover:to-blue-700 text-white border-0"
-                  >
-                    {isLoading ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : null}
-                    Sign In
-                  </Button>
-                </form>
-              </TabsContent>
-
-              <TabsContent value="signup" className="space-y-4 mt-6">
-                <form onSubmit={handleSignUp} className="space-y-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="signup-name" className="text-gray-300">
-                      Full Name
-                    </Label>
-                    <Input
-                      id="signup-name"
-                      name="fullName"
-                      type="text"
-                      placeholder="Enter your full name"
-                      required
-                      className="bg-white/5 border-white/20 text-white placeholder:text-gray-500 focus:border-cyan-500 focus:ring-cyan-500/20"
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="signup-email" className="text-gray-300">
-                      Email
-                    </Label>
-                    <Input
-                      id="signup-email"
-                      name="email"
-                      type="email"
-                      placeholder="Enter your email"
-                      required
-                      className="bg-white/5 border-white/20 text-white placeholder:text-gray-500 focus:border-cyan-500 focus:ring-cyan-500/20"
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="signup-password" className="text-gray-300">
-                      Password
-                    </Label>
-                    <div className="relative">
-                      <Input
-                        id="signup-password"
-                        name="password"
-                        type={showPassword ? "text" : "password"}
-                        placeholder="Create a password (min 6 characters)"
-                        required
-                        minLength={6}
-                        className="bg-white/5 border-white/20 text-white placeholder:text-gray-500 focus:border-cyan-500 focus:ring-cyan-500/20 pr-10"
-                      />
-                      <Button
-                        type="button"
-                        variant="ghost"
-                        size="sm"
-                        className="absolute right-0 top-0 h-full px-3 text-gray-400 hover:text-gray-300"
-                        onClick={() => setShowPassword(!showPassword)}
-                      >
-                        {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-                      </Button>
-                    </div>
-                  </div>
-                  <Button
-                    type="submit"
-                    disabled={isLoading}
-                    className="w-full bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-600 hover:to-blue-700 text-white border-0"
-                  >
-                    {isLoading ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : null}
-                    Create Account
-                  </Button>
-                </form>
-              </TabsContent>
-            </Tabs>
-          </CardContent>
-        </Card>
-      </motion.div>
+          <p className="mono-caption mt-6 text-bone-2">
+            No password recovery dramatics. If you forget, file a memo anonymously and start a new ledger.
+          </p>
+        </motion.section>
+      </main>
     </div>
+  )
+}
+
+function TabButton({
+  active,
+  onClick,
+  children,
+}: {
+  active: boolean
+  onClick: () => void
+  children: React.ReactNode
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className={`mono-caption px-4 py-2 transition-colors duration-200 ${
+        active ? "bg-bone-0 text-ink-0" : "text-bone-1 hover:text-bone-0"
+      }`}
+      data-cursor="read"
+    >
+      {children}
+    </button>
+  )
+}
+
+function Field({
+  label,
+  name,
+  type,
+  autoComplete,
+  hint,
+}: {
+  label: string
+  name: string
+  type: string
+  autoComplete?: string
+  hint?: string
+}) {
+  return (
+    <label className="block">
+      <div className="mono-caption mb-2 flex items-center justify-between">
+        <span>{label}</span>
+        {hint && <span className="text-bone-2">{hint}</span>}
+      </div>
+      <input
+        name={name}
+        type={type}
+        autoComplete={autoComplete}
+        required
+        className="w-full border-0 border-b border-bone-0/10 bg-transparent py-3 text-[16px] text-bone-0 placeholder:text-bone-2 focus:border-bone-0 focus:outline-none"
+      />
+    </label>
+  )
+}
+
+function Submit({ submitting, label }: { submitting: boolean; label: string }) {
+  return (
+    <button
+      type="submit"
+      disabled={submitting}
+      className={`tab-cta ${submitting ? "pointer-events-none opacity-50" : ""}`}
+      data-cursor="file"
+    >
+      <span>{submitting ? "Filing…" : label}</span>
+      <span className="tab-cta-arrow">→</span>
+    </button>
   )
 }
