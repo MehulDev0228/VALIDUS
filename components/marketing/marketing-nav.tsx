@@ -161,7 +161,7 @@ export function MarketingNav() {
             <div className="flex h-full flex-col px-6 pt-24 pb-10">
               <div className="space-y-8">
                 <Link
-                  href="/dashboard/validate"
+                  href="/auth?next=/dashboard/validate"
                   onClick={() => setOpen(false)}
                   className="block font-serif text-[44px] leading-none tracking-tight"
                 >
@@ -318,7 +318,7 @@ function ValidateCta() {
     <span className="inline-block px-2 py-2">
       <Link
         ref={ref}
-        href="/dashboard/validate"
+        href="/auth?next=/dashboard/validate"
         className="tab-cta inline-flex"
         data-cursor="file"
         style={{

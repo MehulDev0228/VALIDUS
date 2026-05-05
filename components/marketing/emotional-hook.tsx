@@ -25,7 +25,7 @@ export function EmotionalHook() {
           transition={{ duration: 0.7, delay: 0.2, ease: ease.editorial }}
           className="mt-12"
         >
-          <Link href="/dashboard/validate" className="tab-cta">
+          <Link href="/auth?next=/dashboard/validate" className="tab-cta" data-cursor="file">
             <span>{microcopy.hook.cta}</span>
             <span className="tab-cta-arrow">→</span>
           </Link>

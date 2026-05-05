@@ -15,6 +15,11 @@ const ROLE_MAP: Record<string, Role> = {
   drag: { label: "DRAG — SCRUB", tone: "anticipating" },
   read: { label: "READING", tone: "reading" },
   cite: { label: "ON THE RECORD", tone: "anticipating" },
+  input: { label: "INTAKE OPEN", tone: "anticipating" },
+  verdict: { label: "VERDICT FILED", tone: "approves" },
+  dossier: { label: "OPEN DOSSIER", tone: "reading" },
+  qa: { label: "EXPAND ANSWER", tone: "reading" },
+  watching: { label: "WATCHING", tone: "watching" },
 }
 
 /**

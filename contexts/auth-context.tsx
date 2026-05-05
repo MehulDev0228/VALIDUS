@@ -20,7 +20,7 @@ interface AuthContextType {
   signIn: (email: string, password: string) => Promise<{ error?: string }>
   signUp: (email: string, password: string, fullName: string) => Promise<{ error?: string }>
   signOut: () => Promise<void>
-  signInWithGoogle: () => Promise<void>
+  signInWithGoogle: (callbackUrl?: string) => Promise<void>
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined)
@@ -59,9 +59,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   }, [session, loading])
 
-  const signInWithGoogle = async () => {
+  const signInWithGoogle = async (callbackUrl: string = '/dashboard') => {
     try {
-      await nextAuthSignIn('google', { callbackUrl: '/dashboard' })
+      const safeUrl = typeof callbackUrl === 'string' && callbackUrl.startsWith('/') ? callbackUrl : '/dashboard'
+      await nextAuthSignIn('google', { callbackUrl: safeUrl })
     } catch (error) {
       console.error('Google sign in error:', error)
     }

@@ -32,7 +32,7 @@ export function ReportPreview() {
               {microcopy.preview.body}
             </p>
             <div className="mt-8">
-              <Link href="/dashboard/validate" className="tab-cta" data-cursor="file">
+              <Link href="/auth?next=/dashboard/validate" className="tab-cta" data-cursor="file">
                 <span>{microcopy.hero.ctaPrimary}</span>
                 <span className="tab-cta-arrow">→</span>
               </Link>

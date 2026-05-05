@@ -3,6 +3,7 @@
 import { CursorCompanion } from "./cursor-companion"
 import { DwellTicker } from "./dwell-ticker"
 import { FileMemoPill } from "./file-memo-pill"
+import { SelectionQuote } from "./selection-quote"
 
 /**
  * InteractiveShell — wraps marketing pages with the bespoke interaction
@@ -15,6 +16,7 @@ export function InteractiveShell({ children }: { children: React.ReactNode }) {
       <CursorCompanion />
       <DwellTicker />
       <FileMemoPill />
+      <SelectionQuote />
       {children}
     </>
   )

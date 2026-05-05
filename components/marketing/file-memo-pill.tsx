@@ -61,7 +61,7 @@ export function FileMemoPill() {
           className="fixed bottom-8 right-8 z-40"
           style={{ willChange: "transform" }}
         >
-          <Link href="/dashboard/validate" className="tab-cta" data-cursor="file">
+          <Link href="/auth?next=/dashboard/validate" className="tab-cta" data-cursor="file">
             <span className="relative flex h-1.5 w-1.5">
               <span className="absolute inset-0 rounded-full bg-bone-0/30" />
               <motion.span

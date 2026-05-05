@@ -105,7 +105,7 @@ export function HeroTriptych() {
           transition={{ duration: 0.6, delay: 1.15, ease: ease.editorial }}
           className="mt-8 flex flex-wrap items-center gap-4"
         >
-          <Link href="/dashboard/validate" className="tab-cta" data-cursor="file">
+          <Link href="/auth?next=/dashboard/validate" className="tab-cta" data-cursor="file">
             <span>{microcopy.hero.ctaPrimary}</span>
             <span className="tab-cta-arrow">→</span>
           </Link>

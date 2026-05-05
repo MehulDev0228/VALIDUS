@@ -1,12 +1,11 @@
 "use client"
 
 import type React from "react"
-import { useEffect, useState } from "react"
+import { useEffect, useMemo, useState } from "react"
 import Link from "next/link"
 import { motion, AnimatePresence } from "framer-motion"
-import { useRouter } from "next/navigation"
+import { useRouter, useSearchParams } from "next/navigation"
 import { useAuth } from "@/contexts/auth-context"
-import { microcopy } from "@/lib/microcopy"
 import { ease } from "@/lib/motion"
 
 type Tab = "in" | "up"
@@ -21,17 +20,23 @@ type Tab = "in" | "up"
 export default function AuthPage() {
   const { signIn, signUp, signInWithGoogle, user, loading } = useAuth()
   const router = useRouter()
+  const search = useSearchParams()
+  const next = useMemo(() => {
+    const raw = search?.get("next") || "/dashboard"
+    // Allow only same-origin paths to prevent open-redirects.
+    return raw.startsWith("/") ? raw : "/dashboard"
+  }, [search])
 
-  const [tab, setTab] = useState<Tab>("in")
+  const [tab, setTab] = useState<Tab>("up") // default to sign-up — conversion bias
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [success, setSuccess] = useState<string | null>(null)
 
   useEffect(() => {
     if (user && !loading) {
-      router.push("/dashboard")
+      router.push(next)
     }
-  }, [user, loading, router])
+  }, [user, loading, router, next])
 
   async function handleSignIn(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault()
@@ -49,8 +54,8 @@ export default function AuthPage() {
     const result = await signIn(email, password)
     if (result.error) setError(result.error)
     else {
-      setSuccess("Accepted. Routing to ledger.")
-      setTimeout(() => router.push("/dashboard"), 600)
+      setSuccess("Accepted. Routing to the system.")
+      setTimeout(() => router.push(next), 600)
     }
     setSubmitting(false)
   }
@@ -76,7 +81,10 @@ export default function AuthPage() {
     }
     const result = await signUp(email, password, fullName)
     if (result.error) setError(result.error)
-    else setSuccess("Accepted. Check your email to confirm.")
+    else {
+      setSuccess("Account opened. Routing to the system.")
+      setTimeout(() => router.push(next), 600)
+    }
     setSubmitting(false)
   }
 
@@ -85,7 +93,7 @@ export default function AuthPage() {
     setSuccess(null)
     setSubmitting(true)
     try {
-      await signInWithGoogle()
+      await signInWithGoogle(next)
     } catch {
       setError("Google sign-in refused.")
     }
@@ -118,13 +126,25 @@ export default function AuthPage() {
         >
           <p className="mono-caption">Identity intake</p>
           <h1 className="mt-6 font-serif text-[clamp(36px,4.5vw,56px)] leading-[1.05] tracking-[-0.025em]">
-            {tab === "in" ? "Return to the ledger." : "Open a session."}
+            {tab === "in" ? "Return to the ledger." : "Open the ledger."}
           </h1>
           <p className="mt-6 max-w-[420px] text-[16px] leading-[1.6] text-bone-1">
             {tab === "in"
-              ? "Identity is optional — anonymous filings still work. Sign in only if you want your ledger synced across devices."
-              : "Optional. The system files memos with or without you. An account just keeps your ledger in one place."}
+              ? "Sign in to continue. Your past memos, attempts, and verdicts are waiting."
+              : "Sixty seconds. No card. The first memo files immediately and the ledger keeps everything from then on."}
           </p>
+          <ul className="mt-8 space-y-3 text-[14px] leading-snug text-bone-1">
+            {[
+              "Two memos per day. Strict. The judges sleep.",
+              "Seven specialist agents and a Final Judge. Verdict in under a minute.",
+              "Your ledger of decisions, attempts, and learnings — on file forever.",
+            ].map((point) => (
+              <li key={point} className="flex gap-3">
+                <span className="select-none text-bone-2">—</span>
+                <span>{point}</span>
+              </li>
+            ))}
+          </ul>
 
           <div className="mt-10 inline-flex border border-bone-0/10">
             <TabButton active={tab === "in"} onClick={() => setTab("in")}>
@@ -245,7 +265,7 @@ export default function AuthPage() {
           </div>
 
           <p className="mono-caption mt-6 text-bone-2">
-            No password recovery dramatics. If you forget, file a memo anonymously and start a new ledger.
+            By continuing you agree the system speaks plainly. No hand-holding, no hedging, no recovery dramatics.
           </p>
         </motion.section>
       </main>
