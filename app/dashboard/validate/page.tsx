@@ -32,6 +32,7 @@ export default function ValidatePage() {
   })
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [retryable, setRetryable] = useState(false)
   const [usage, setUsage] = useState<{ used: number; limit: number; resetInSeconds: number } | null>(null)
 
   // Auth gate
@@ -86,6 +87,7 @@ export default function ValidatePage() {
   async function handleSubmit() {
     if (!ready || submitting || !user) return
     setError(null)
+    setRetryable(false)
     setSubmitting(true)
 
     try {
@@ -113,11 +115,19 @@ export default function ValidatePage() {
         })
       } catch {}
 
-      const res = await fetch("/api/validate-idea", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ idea_data: ideaPayload, user_id: user.id, fingerprint }),
-      })
+      let res: Response
+      try {
+        res = await fetch("/api/validate-idea", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ idea_data: ideaPayload, user_id: user.id, fingerprint }),
+        })
+      } catch {
+        setError(microcopy.validate.errors.network)
+        setRetryable(true)
+        setSubmitting(false)
+        return
+      }
 
       if (!res.ok) {
         const err = await res.json().catch(() => null)
@@ -127,8 +137,16 @@ export default function ValidatePage() {
         }
         if (res.status === 429) {
           setError(microcopy.validate.errors.rateLimit)
+          setRetryable(false)
+        } else if (res.status === 408 || res.status === 504) {
+          setError(microcopy.validate.errors.timeout)
+          setRetryable(true)
+        } else if (res.status >= 500) {
+          setError(microcopy.validate.errors.server)
+          setRetryable(true)
         } else {
-          setError(err?.error || microcopy.validate.errors.generic)
+          setError(typeof err?.error === "string" ? err.error : microcopy.validate.errors.generic)
+          setRetryable(false)
         }
         setSubmitting(false)
         return
@@ -136,7 +154,10 @@ export default function ValidatePage() {
 
       const json = await res.json()
       if (!json?.success) {
-        setError(json?.error || microcopy.validate.errors.generic)
+        const msg =
+          typeof json?.error === "string" ? json.error : microcopy.validate.errors.generic
+        setError(msg)
+        setRetryable(/try again|timeout|unavailable|service/i.test(msg))
         setSubmitting(false)
         return
       }
@@ -148,7 +169,8 @@ export default function ValidatePage() {
 
       router.push("/dashboard/validate/results")
     } catch (e) {
-      setError(e instanceof Error ? e.message : microcopy.validate.errors.generic)
+      setError(e instanceof Error ? e.message : microcopy.validate.errors.network)
+      setRetryable(true)
       setSubmitting(false)
     }
   }
@@ -210,7 +232,7 @@ export default function ValidatePage() {
           transition={{ duration: 0.6, ease: ease.editorial }}
           className="font-serif text-[clamp(36px,5.5vw,72px)] leading-[1.05] tracking-[-0.025em]"
         >
-          File a memo. The agents will argue.
+          {microcopy.validate.title}
         </motion.h1>
 
         <motion.p
@@ -219,7 +241,7 @@ export default function ValidatePage() {
           transition={{ duration: 0.6, delay: 0.1, ease: ease.editorial }}
           className="mt-6 max-w-[560px] text-[16px] leading-[1.6] text-bone-1"
         >
-          Write like you'd brief a senior partner. Specifics over adjectives. The sharper the input, the sharper the verdict.
+          {microcopy.validate.lead}
         </motion.p>
 
         {limitReached && (
@@ -229,7 +251,7 @@ export default function ValidatePage() {
             className="mt-10 border-l-2 border-verdict-kill bg-verdict-kill/[0.04] px-6 py-4"
             role="alert"
           >
-            <div className="mono-caption mb-1 text-verdict-kill">LIMIT REACHED</div>
+            <div className="mono-caption mb-1 text-bone-2">Daily limit</div>
             <p className="text-[15px] leading-snug text-bone-0">
               {microcopy.validate.errors.rateLimit}
             </p>
@@ -282,11 +304,21 @@ export default function ValidatePage() {
           <motion.div
             initial={{ opacity: 0, y: 8 }}
             animate={{ opacity: 1, y: 0 }}
-            className="mt-12 border-l-2 border-verdict-kill bg-verdict-kill/[0.04] px-6 py-4"
+            className="mt-12 border-l-2 border-bone-0/25 bg-ink-1/30 px-6 py-4"
             role="alert"
           >
-            <div className="mono-caption mb-1 text-verdict-kill">REFUSED</div>
+            <div className="mono-caption mb-1 text-bone-2">Could not file memo</div>
             <p className="text-[15px] leading-snug text-bone-0">{error}</p>
+            {retryable ? (
+              <button
+                type="button"
+                onClick={() => void handleSubmit()}
+                disabled={!ready || submitting || limitReached}
+                className="mono-caption mt-4 border border-bone-0/20 px-4 py-2 hover:border-bone-0/35 disabled:opacity-40"
+              >
+                Try again
+              </button>
+            ) : null}
           </motion.div>
         )}
 

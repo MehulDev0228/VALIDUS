@@ -18,6 +18,7 @@ yarn-error.log*
 
 # env files
 .env*
+!.env.example
 
 # vercel
 .vercel
@@ -28,3 +29,15 @@ next-env.d.ts
 
 # FDS local persistence (idea validation logs — do not commit)
 /data/fds-store.json
+
+# Per-founder longitudinal memory (local dev / single-host)
+/data/founder-memory/*.json
+
+# Internal product intelligence (append-only logs — do not commit)
+/data/product-intelligence/*.jsonl
+
+# Waitlist submissions (alpha — do not commit)
+/data/waitlist/*.jsonl
+
+# Calibration outputs (large; regenerate with npm run calibration)
+/data/calibration/runs/*.json

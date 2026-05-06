@@ -28,9 +28,9 @@ const mono = JetBrains_Mono({
 })
 
 export const metadata: Metadata = {
-  title: "FutureValidate — A decision system that argues with founders.",
+  title: "FutureValidate — private founder reflection",
   description:
-    "Brutally honest startup validation. Seven specialised agents debate your idea, a Final Judge issues a BUILD, PIVOT, or KILL verdict, and you get a 48-hour falsification plan.",
+    "A calm room for founders — file what you're thinking, receive structured tension and a single decision frame. No audience. No performance.",
 }
 
 export default function RootLayout({

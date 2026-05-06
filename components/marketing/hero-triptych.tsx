@@ -26,6 +26,7 @@ export function HeroTriptych() {
   const reduce = useReducedMotion()
   const [stamp, setStamp] = useState<string>("")
   const [status, setStatus] = useState<"deliberating" | "filed" | "rest">("deliberating")
+  const [headlineParallaxY, setHeadlineParallaxY] = useState(0)
 
   // Live UTC clock for the file marker.
   useEffect(() => {
@@ -58,6 +59,17 @@ export function HeroTriptych() {
     }
   }, [reduce])
 
+  useEffect(() => {
+    if (reduce) return
+    const onMove = (e: MouseEvent) => {
+      const viewportH = window.innerHeight || 1
+      const normalized = (e.clientY / viewportH - 0.5) * 2
+      setHeadlineParallaxY(normalized * 6)
+    }
+    window.addEventListener("mousemove", onMove)
+    return () => window.removeEventListener("mousemove", onMove)
+  }, [reduce])
+
   return (
     <section
       id="hero"
@@ -83,11 +95,16 @@ export function HeroTriptych() {
           </span>
         </div>
 
-        <h1 className="display-xl text-[clamp(56px,11vw,148px)] font-medium text-bone-0" data-cursor="read">
+        <motion.h1
+          className="display-xl text-[clamp(56px,11vw,148px)] font-medium text-bone-0"
+          data-cursor="read"
+          animate={reduce ? undefined : { y: headlineParallaxY }}
+          transition={{ duration: 0.35, ease: "easeOut" }}
+        >
           <RedactedLine text={microcopy.hero.headlineLines[0]} delay={0.15} sweepFrom="left" reduce={!!reduce} />
           <RedactedLine text={microcopy.hero.headlineLines[1]} delay={0.4} sweepFrom="right" italic reduce={!!reduce} />
           <RedactedLine text={microcopy.hero.headlineLines[2]} delay={0.65} sweepFrom="left" reduce={!!reduce} />
-        </h1>
+        </motion.h1>
 
         <motion.p
           initial={{ opacity: 0, y: 12 }}

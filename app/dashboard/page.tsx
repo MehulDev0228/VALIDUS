@@ -6,8 +6,12 @@ import { motion, useInView } from "framer-motion"
 import { useRouter } from "next/navigation"
 import { useAuth } from "@/contexts/auth-context"
 import { DashboardNav } from "@/components/dashboard-nav"
+import { DashboardOperatingSpine } from "@/components/dashboard-operating-spine"
 import { microcopy } from "@/lib/microcopy"
 import { ease } from "@/lib/motion"
+import type { ProgressionWorkspacePayload } from "@/lib/founder-memory/bundle"
+import type { ExecutionWorkspacePayload } from "@/lib/founder-memory/execution-workspace"
+import type { BlindSpotObservation } from "@/lib/founder-memory/types"
 import { readDecisionHistory } from "@/lib/founder-workflow/storage"
 import type { DecisionRecord } from "@/lib/founder-workflow/types"
 
@@ -33,6 +37,18 @@ const toneClass = (tone: "build" | "pivot" | "kill" | "neutral") =>
         ? "bg-verdict-pivot"
         : "bg-bone-0"
 
+function recordTimeMs(r: DecisionRecord): number {
+  const raw = r.timestamp || r.createdAt
+  const ms = raw ? Date.parse(raw) : Number.NaN
+  return Number.isFinite(ms) ? ms : 0
+}
+
+function recordDateLabel(r: DecisionRecord): string {
+  const ms = recordTimeMs(r)
+  if (!ms) return "unknown"
+  return new Date(ms).toISOString().slice(0, 10)
+}
+
 export default function DashboardPage() {
   const { user, loading } = useAuth()
   const router = useRouter()
@@ -42,6 +58,13 @@ export default function DashboardPage() {
   const [hydrated, setHydrated] = useState(false)
   const [usage, setUsage] = useState<{ used: number; limit: number; resetInSeconds: number } | null>(null)
   const [draft, setDraft] = useState("")
+  const [fmBusy, setFmBusy] = useState(true)
+  const [fm, setFm] = useState<{
+    journeyLines: string[]
+    execution: ExecutionWorkspacePayload | null
+    progression: ProgressionWorkspacePayload | null
+    blindSpots: BlindSpotObservation[]
+  } | null>(null)
 
   // Auth gate
   useEffect(() => {
@@ -51,6 +74,74 @@ export default function DashboardPage() {
   }, [user, loading, router])
 
   useEffect(() => {
+    if (!user) return
+    let cancelled = false
+    setFmBusy(true)
+    fetch("/api/founder-memory")
+      .then((r) => (r.ok ? r.json() : null))
+      .then((j) => {
+        if (cancelled) return
+        if (!j?.success) {
+          setFm({
+            journeyLines: [],
+            execution: null,
+            progression: null,
+            blindSpots: [],
+          })
+          setFmBusy(false)
+          return
+        }
+        if (!j.onboarding) {
+          router.replace(`/dashboard/onboarding?next=${encodeURIComponent("/dashboard")}`)
+          /** Stay in loading shell until onboarding route swaps in */
+          return
+        }
+        setFm({
+          journeyLines: Array.isArray(j.journeyLines) ? j.journeyLines : [],
+          execution: j.execution ?? null,
+          progression: j.progression ?? null,
+          blindSpots: Array.isArray(j.blindSpots) ? j.blindSpots : [],
+        })
+        try {
+          const sess = sessionStorage.getItem("fv_dash_trust_sess")
+          if (!sess) {
+            sessionStorage.setItem("fv_dash_trust_sess", "1")
+            void fetch("/api/founder-memory/trust", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ kind: "dashboard_session" }),
+            })
+          }
+          const piHome = sessionStorage.getItem("fv_pi_workspace_home")
+          if (!piHome) {
+            sessionStorage.setItem("fv_pi_workspace_home", "1")
+            void fetch("/api/product-events", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              credentials: "same-origin",
+              body: JSON.stringify({ events: [{ kind: "workspace_home_open" }] }),
+            }).catch(() => {})
+          }
+        } catch {}
+        setFmBusy(false)
+      })
+      .catch(() => {
+        if (!cancelled) {
+          setFm({
+            journeyLines: [],
+            execution: null,
+            progression: null,
+            blindSpots: [],
+          })
+          setFmBusy(false)
+        }
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [user, router])
+
+  useEffect(() => {
     setRecords(readDecisionHistory())
     setHydrated(true)
 
@@ -58,6 +149,7 @@ export default function DashboardPage() {
       .then((r) => (r.ok ? r.json() : null))
       .then((j) => {
         if (Array.isArray(j?.records)) setServerRecords(j.records as DecisionRecord[])
+        else if (Array.isArray(j?.decisions)) setServerRecords(j.decisions as DecisionRecord[])
       })
       .catch(() => {})
   }, [])
@@ -77,10 +169,10 @@ export default function DashboardPage() {
   const merged = useMemo(() => {
     const byKey = new Map<string, DecisionRecord>()
     for (const r of [...serverRecords, ...records]) {
-      const key = `${r.ideaId}::${r.timestamp}`
+      const key = `${r.ideaId}::${recordTimeMs(r)}`
       if (!byKey.has(key)) byKey.set(key, r)
     }
-    return Array.from(byKey.values()).sort((a, b) => (b.timestamp > a.timestamp ? 1 : -1))
+    return Array.from(byKey.values()).sort((a, b) => recordTimeMs(b) - recordTimeMs(a))
   }, [records, serverRecords])
 
   const totals = useMemo(() => {
@@ -95,7 +187,10 @@ export default function DashboardPage() {
   const stats = useMemo(() => {
     const now = Date.now()
     const SEVEN_DAYS = 7 * 24 * 60 * 60 * 1000
-    const lastSeven = merged.filter((r) => now - new Date(r.timestamp).getTime() < SEVEN_DAYS)
+    const lastSeven = merged.filter((r) => {
+      const ms = recordTimeMs(r)
+      return ms > 0 && now - ms < SEVEN_DAYS
+    })
     const scores = merged
       .map((r) => (r.opportunityScore != null ? Math.round(r.opportunityScore) : null))
       .filter((s): s is number => s != null)
@@ -105,7 +200,7 @@ export default function DashboardPage() {
       week: lastSeven.length,
       avgScore,
       lastVerdict: (last?.verdict as Verdict) || null,
-      lastDate: last?.timestamp ?? null,
+      lastDate: last ? recordDateLabel(last) : null,
     }
   }, [merged])
 
@@ -121,12 +216,14 @@ export default function DashboardPage() {
     router.push("/dashboard/validate")
   }
 
-  if (loading || !user) {
+  const dboard = microcopy.dashboard
+
+  if (loading || !user || fmBusy || fm === null) {
     return (
       <div className="min-h-screen bg-ink-0 text-bone-0">
         <DashboardNav />
         <main className="grid h-[60vh] place-items-center">
-          <span className="mono-caption tabular text-bone-2">opening ledger…</span>
+          <span className="mono-caption tabular text-bone-2">{dboard.loading}</span>
         </main>
       </div>
     )
@@ -148,16 +245,13 @@ export default function DashboardPage() {
           initial={{ opacity: 0, y: 12 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.6, ease: ease.editorial }}
-          className="grid grid-cols-1 gap-8 border-b border-bone-0/[0.08] pb-12 md:grid-cols-12 md:gap-10 md:pb-16"
+          className="grid grid-cols-1 gap-8 border-b border-bone-0/[0.05] pb-12 md:grid-cols-12 md:gap-10 md:pb-16"
         >
           <div className="md:col-span-7">
             <div className="flex items-center gap-3">
-              <span className="relative flex h-2 w-2">
-                <span className="absolute inline-flex h-full w-full animate-ping bg-bone-0 opacity-60" />
-                <span className="relative inline-flex h-2 w-2 bg-bone-0" />
-              </span>
+              <span className="inline-flex h-2 w-2 bg-bone-0/80" aria-hidden />
               <span className="mono-caption tabular text-bone-1">
-                LEDGER OPEN · {new Date().toUTCString().slice(17, 25)} UTC
+                {dboard.statusEyebrow} · {new Date().toUTCString().slice(17, 25)} UTC
               </span>
             </div>
 
@@ -169,10 +263,8 @@ export default function DashboardPage() {
               </em>
             </h1>
 
-            <p className="mt-6 max-w-[520px] text-[16px] leading-[1.55] text-bone-1">
-              {merged.length === 0
-                ? "Empty docket. The first memo opens the file. Two memos a day, always."
-                : `${merged.length} memo${merged.length === 1 ? "" : "s"} on file. The system is ready for the next one.`}
+            <p className="mt-6 max-w-[560px] text-[16px] leading-[1.55] text-bone-1">
+              {merged.length === 0 ? dboard.homeEmptyLead : dboard.homeActiveLead(merged.length)}
             </p>
           </div>
 
@@ -180,6 +272,13 @@ export default function DashboardPage() {
             <UsageMeter used={used} limit={limit} resetInSeconds={usage?.resetInSeconds ?? 0} />
           </div>
         </motion.section>
+
+        <DashboardOperatingSpine
+          journeyLines={fm.journeyLines}
+          execution={fm.execution}
+          progression={fm.progression}
+          blindSpots={fm.blindSpots}
+        />
 
         {/* QUICK BRIEF — inline file input on dashboard */}
         <QuickBrief
@@ -192,7 +291,7 @@ export default function DashboardPage() {
         />
 
         {/* AGENT BENCH — live ready strip */}
-        <AgentBench />
+        <PerspectiveStack />
 
         {/* PACE BLOCK */}
         <motion.section
@@ -200,17 +299,17 @@ export default function DashboardPage() {
           whileInView={{ opacity: 1, y: 0 }}
           viewport={{ once: true, margin: "-15%" }}
           transition={{ duration: 0.55, ease: ease.editorial }}
-          className="mt-20 grid grid-cols-2 gap-px border border-bone-0/[0.08] bg-bone-0/[0.08] md:grid-cols-4"
+          className="mt-20 grid grid-cols-2 gap-3 md:grid-cols-4 md:gap-4"
         >
-          <PaceTile label="Filed total" value={merged.length.toString().padStart(2, "0")} />
-          <PaceTile label="This week" value={stats.week.toString().padStart(2, "0")} />
+          <PaceTile label={dboard.trajectoryLabel} value={merged.length.toString().padStart(2, "0")} />
+          <PaceTile label={dboard.weekLabel} value={stats.week.toString().padStart(2, "0")} />
           <PaceTile
-            label="Avg score"
+            label={dboard.scoreLabel}
             value={stats.avgScore != null ? `${stats.avgScore}` : "—"}
             sub={stats.avgScore != null ? "/100" : undefined}
           />
           <PaceTile
-            label="Last verdict"
+            label={dboard.lastFrameLabel}
             value={stats.lastVerdict ?? "—"}
             tone={
               stats.lastVerdict === "BUILD"
@@ -232,15 +331,15 @@ export default function DashboardPage() {
           transition={{ duration: 0.6, ease: ease.editorial }}
           className="mt-24"
         >
-          <header className="mb-6 flex items-end justify-between border-b border-bone-0/[0.08] pb-6">
+          <header className="mb-6 flex items-end justify-between border-b border-bone-0/[0.06] pb-6">
             <div>
-              <p className="mono-caption">The ledger</p>
+              <p className="mono-caption">{dboard.ledgerEyebrow}</p>
               <h2 className="mt-2 font-serif text-[clamp(28px,3.4vw,40px)] leading-tight tracking-[-0.02em]">
-                Recent verdicts
+                {dboard.ledgerTitle}
               </h2>
             </div>
             <Link href="/dashboard/validate" className="tab-cta" data-cursor="file">
-              <span className="hidden sm:inline">File a memo</span>
+              <span className="hidden sm:inline">{dboard.nav.memo}</span>
               <span className="sm:hidden">File</span>
               <span className="tab-cta-arrow">→</span>
             </Link>
@@ -260,13 +359,13 @@ export default function DashboardPage() {
 
           {merged.length > 12 && (
             <p className="mono-caption mt-6 tabular text-bone-2">
-              {merged.length - 12} older memos archived. Scroll deeper to retrieve.
+              {merged.length - 12} {microcopy.dashboard.archivedMore}
             </p>
           )}
         </motion.section>
 
         <p className="mono-caption mt-20 tabular text-bone-2">
-          Session — {user.email || "anonymous"} · ID {user.id.slice(0, 12)}…
+          {dboard.sessionEyebrow} — {user.email || "anonymous"} · ID {user.id.slice(0, 12)}…
         </p>
       </main>
     </div>
@@ -291,10 +390,20 @@ function UsageMeter({
   const toneText =
     tone === "kill" ? "text-verdict-kill" : tone === "build" ? "text-verdict-build" : "text-verdict-pivot"
 
+  const dboard = microcopy.dashboard
+  const docketCopy =
+    remaining === 0
+      ? dboard.docketLimitCopy.exhausted
+      : remaining === limit
+        ? dboard.docketLimitCopy.open
+        : remaining === 1
+          ? dboard.docketLimitCopy.oneLeft
+          : dboard.docketLimitCopy.mid
+
   return (
-    <div className="border border-bone-0/[0.08] p-6 md:p-8" data-cursor="watching">
+    <div className="bg-gradient-to-b from-bone-0/[0.04] to-transparent p-6 md:p-8" data-cursor="watching">
       <div className="flex items-baseline justify-between">
-        <p className="mono-caption">Today's docket</p>
+        <p className="mono-caption">{dboard.docketEyebrow}</p>
         <p className="mono-caption tabular text-bone-2">UTC</p>
       </div>
 
@@ -307,25 +416,19 @@ function UsageMeter({
 
       <div className="mt-6 grid grid-cols-2 gap-2">
         {Array.from({ length: limit }).map((_, i) => {
-          const filled = i < used
+            const filled = i < used
           return (
             <div
               key={i}
-              className={`h-3 ${filled ? "bg-bone-0" : "border border-bone-0/15 bg-transparent"}`}
+              className={`h-2.5 ${filled ? "bg-bone-0/90" : "bg-bone-0/10"}`}
               aria-hidden
             />
           )
         })}
       </div>
 
-      <div className="mt-6 flex flex-wrap items-center justify-between gap-4 border-t border-bone-0/[0.06] pt-4">
-        <p className="text-[13px] leading-snug text-bone-1">
-          {remaining === 0
-            ? "Limit reached. The judges sleep."
-            : remaining === limit
-              ? "Two slots open. Use them sharper than yesterday."
-              : `${remaining} slot left today.`}
-        </p>
+      <div className="mt-6 flex flex-wrap items-center justify-between gap-4 border-t border-bone-0/[0.05] pt-4">
+        <p className="text-[13px] leading-snug text-bone-1">{docketCopy}</p>
         <p className="mono-caption tabular text-bone-2">
           resets in <ResetCountdown seconds={resetInSeconds} />
         </p>
@@ -383,14 +486,12 @@ function QuickBrief({
     >
       <div className="grid grid-cols-1 gap-6 md:grid-cols-12 md:gap-10">
         <div className="md:col-span-3">
-          <p className="mono-caption">Quick brief</p>
-          <p className="mt-3 max-w-[280px] text-[14px] leading-snug text-bone-1">
-            Type a one-line idea. The system carries you to the full intake with this on top.
-          </p>
+          <p className="mono-caption">{microcopy.dashboard.quickBriefEyebrow}</p>
+          <p className="mt-3 max-w-[280px] text-[14px] leading-snug text-bone-1">{microcopy.dashboard.quickBriefLead}</p>
         </div>
 
         <div className="md:col-span-9">
-          <div className="border border-bone-0/[0.08] bg-ink-1/40 p-5 md:p-6" data-cursor="input">
+          <div className="bg-bone-0/[0.035] p-5 md:p-6" data-cursor="input">
             <textarea
               rows={1}
               value={value}
@@ -402,11 +503,15 @@ function QuickBrief({
               onKeyDown={(e) => {
                 if ((e.metaKey || e.ctrlKey) && e.key === "Enter") onSubmit()
               }}
-              placeholder={disabled ? "Limit reached. The judges sleep." : "An AI tool for boutique law firms…"}
+              placeholder={
+                disabled
+                  ? microcopy.dashboard.quickBriefPlaceholderDisabled
+                  : microcopy.dashboard.quickBriefPlaceholder
+              }
               className="w-full resize-none border-0 bg-transparent font-serif text-[clamp(20px,2.4vw,32px)] leading-[1.2] tracking-[-0.015em] text-bone-0 placeholder:text-bone-2/70 focus:outline-none disabled:opacity-50"
             />
 
-            <div className="mt-4 flex flex-wrap items-center justify-between gap-3 border-t border-bone-0/[0.06] pt-4">
+            <div className="mt-4 flex flex-wrap items-center justify-between gap-3 border-t border-bone-0/[0.05] pt-4">
               <span className="mono-caption tabular text-bone-2">
                 {value.length > 0 ? `${value.length} chars` : "0 chars"} · ⌘⏎ to file
               </span>
@@ -416,7 +521,7 @@ function QuickBrief({
                 disabled={disabled || value.trim().length < 8}
                 className={`tab-cta ${disabled || value.trim().length < 8 ? "pointer-events-none opacity-40" : ""}`}
               >
-                <span>Carry to intake</span>
+                <span>{microcopy.dashboard.quickBriefSubmit}</span>
                 <span className="tab-cta-arrow">→</span>
               </button>
             </div>
@@ -430,42 +535,38 @@ function QuickBrief({
   )
 }
 
-function AgentBench() {
+function PerspectiveStack() {
   const ref = useRef<HTMLDivElement | null>(null)
   const inView = useInView(ref, { once: true, margin: "-15%" })
+  const d = microcopy.dashboard
 
   return (
     <motion.section
       ref={ref}
       initial={{ opacity: 0 }}
       animate={inView ? { opacity: 1 } : {}}
-      transition={{ duration: 0.6, ease: ease.editorial }}
-      className="mt-12 md:mt-16"
+      transition={{ duration: 0.55, ease: ease.editorial }}
+      className="mt-14 md:mt-20"
     >
-      <header className="mb-4 flex items-baseline justify-between">
-        <p className="mono-caption">The bench — standing by</p>
-        <p className="mono-caption tabular text-bone-2">8 / 8 ready</p>
+      <header className="mb-5 flex flex-wrap items-baseline justify-between gap-2">
+        <p className="mono-caption">{d.perspectiveStackEyebrow}</p>
+        <p className="mono-caption text-bone-2">{d.perspectiveStackSub}</p>
       </header>
-      <div className="grid grid-cols-4 gap-px border border-bone-0/[0.08] bg-bone-0/[0.08] md:grid-cols-8">
+      <div className="grid grid-cols-4 gap-2 md:grid-cols-8 md:gap-3">
         {AGENTS.map((a, i) => (
           <motion.div
             key={a.code}
-            initial={{ opacity: 0, y: 6 }}
+            initial={{ opacity: 0, y: 4 }}
             animate={inView ? { opacity: 1, y: 0 } : {}}
-            transition={{ duration: 0.4, delay: 0.04 * i, ease: ease.editorial }}
-            className="group relative bg-ink-0 p-4 transition-colors duration-300 hover:bg-ink-1"
+            transition={{ duration: 0.35, delay: 0.025 * i, ease: ease.editorial }}
+            className="group relative bg-bone-0/[0.025] px-3 py-4 transition-colors duration-300 hover:bg-bone-0/[0.045]"
             data-cursor="dossier"
           >
             <div className="flex items-center gap-2">
-              <span className={`h-1.5 w-1.5 ${toneClass(a.tone)} animate-pulse`} aria-hidden />
+              <span className={`h-1 w-1 rounded-full ${toneClass(a.tone)} opacity-70`} aria-hidden />
               <span className="mono-caption tabular text-bone-2">{a.code}</span>
             </div>
-            <div className="mt-3 font-serif text-[15px] leading-tight tracking-[-0.01em] text-bone-0">
-              {a.name}
-            </div>
-            <div className="mt-2 mono-caption text-bone-2 transition-colors group-hover:text-bone-1">
-              READY
-            </div>
+            <div className="mt-3 font-serif text-[14px] leading-snug tracking-[-0.01em] text-bone-0">{a.name}</div>
           </motion.div>
         ))}
       </div>
@@ -493,7 +594,7 @@ function PaceTile({
           ? "text-verdict-pivot"
           : "text-bone-0"
   return (
-    <div className="bg-ink-0 p-6 md:p-8">
+    <div className="bg-bone-0/[0.025] px-6 py-6 md:p-8">
       <div className="mono-caption">{label}</div>
       <div className={`tabular mt-3 flex items-baseline font-sans text-[clamp(36px,4vw,52px)] font-medium leading-none tracking-[-0.03em] ${text}`}>
         <span>{value}</span>
@@ -510,7 +611,7 @@ function RecordRow({ r, index }: { r: DecisionRecord; index: number }) {
   const accent =
     verdict === "BUILD" ? "bg-verdict-build" : verdict === "KILL" ? "bg-verdict-kill" : "bg-verdict-pivot"
   const cursor = verdict === "BUILD" ? "approves" : verdict === "KILL" ? "denies" : "pivots"
-  const date = new Date(r.timestamp).toISOString().slice(0, 10)
+  const date = recordDateLabel(r)
   const score = r.opportunityScore != null ? Math.round(r.opportunityScore) : null
 
   return (
@@ -555,19 +656,18 @@ function RecordRow({ r, index }: { r: DecisionRecord; index: number }) {
 }
 
 function EmptyLedger() {
+  const d = microcopy.dashboard
   return (
-    <div className="grid gap-8 border border-bone-0/[0.1] bg-ink-1/40 p-8 md:grid-cols-[1fr_auto] md:items-center md:p-12">
+    <div className="grid gap-8 bg-gradient-to-br from-bone-0/[0.04] to-transparent p-8 md:grid-cols-[1fr_auto] md:items-center md:p-12">
       <div className="max-w-[520px]">
-        <p className="mono-caption mb-3">Empty docket</p>
+        <p className="mono-caption mb-3">{d.emptyLedgerEyebrow}</p>
         <p className="font-serif text-[clamp(22px,2.6vw,32px)] leading-snug tracking-[-0.02em]">
           {microcopy.empty.decisions}
         </p>
-        <p className="mt-4 text-[14px] leading-snug text-bone-1">
-          File the first one — the system has been waiting.
-        </p>
+        <p className="mt-4 text-[14px] leading-snug text-bone-1">{d.emptyLedgerAside}</p>
       </div>
       <Link href="/dashboard/validate" className="tab-cta" data-cursor="file">
-        <span>File the first memo</span>
+        <span>Open your first memo</span>
         <span className="tab-cta-arrow">→</span>
       </Link>
     </div>

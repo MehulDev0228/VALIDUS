@@ -14,7 +14,7 @@ type Tab = "in" | "up"
  * AuthPage — single-column editorial intake.
  *
  * Two modes (sign in / sign up) sit on a hairline-ruled stack. Errors are
- * forensic ("REFUSED — …"), success messages are forensic ("ACCEPTED — …").
+ * Errors stay direct without dramatic chrome.
  * No card chrome, no glow, no gradients.
  */
 export default function AuthPage() {
@@ -62,7 +62,7 @@ function AuthPageContent() {
     const result = await signIn(email, password)
     if (result.error) setError(result.error)
     else {
-      setSuccess("Accepted. Routing to the system.")
+      setSuccess("Routing to your workspace.")
       setTimeout(() => router.push(next), 600)
     }
     setSubmitting(false)
@@ -90,7 +90,7 @@ function AuthPageContent() {
     const result = await signUp(email, password, fullName)
     if (result.error) setError(result.error)
     else {
-      setSuccess("Account opened. Routing to the system.")
+      setSuccess("Account ready — opening workspace.")
       setTimeout(() => router.push(next), 600)
     }
     setSubmitting(false)
@@ -253,10 +253,10 @@ function AuthPageContent() {
               <motion.div
                 initial={{ opacity: 0, y: 6 }}
                 animate={{ opacity: 1, y: 0 }}
-                className="mt-6 border-l-2 border-verdict-kill bg-verdict-kill/[0.04] px-4 py-3"
+                className="mt-6 border-l-2 border-bone-0/20 bg-ink-1/40 px-4 py-3"
                 role="alert"
               >
-                <span className="mono-caption text-verdict-kill">REFUSED</span>
+                <span className="mono-caption text-bone-2">Could not complete</span>
                 <p className="mt-1 text-[14px] text-bone-0">{error}</p>
               </motion.div>
             )}
@@ -264,16 +264,16 @@ function AuthPageContent() {
               <motion.div
                 initial={{ opacity: 0, y: 6 }}
                 animate={{ opacity: 1, y: 0 }}
-                className="mt-6 border-l-2 border-verdict-build bg-verdict-build/[0.04] px-4 py-3"
+                className="mt-6 border-l-2 border-bone-0/25 bg-ink-1/30 px-4 py-3"
               >
-                <span className="mono-caption text-verdict-build">ACCEPTED</span>
+                <span className="mono-caption text-bone-0">You're in</span>
                 <p className="mt-1 text-[14px] text-bone-0">{success}</p>
               </motion.div>
             )}
           </div>
 
           <p className="mono-caption mt-6 text-bone-2">
-            By continuing you agree the system speaks plainly. No hand-holding, no hedging, no recovery dramatics.
+            Sign-in stays private — we use sessions only for your ledger and memos on file.
           </p>
         </motion.section>
       </main>

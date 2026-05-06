@@ -19,7 +19,15 @@ export function EditorialFooter() {
               {microcopy.footer.columns.product.map((item) => (
                 <li key={item}>
                   <Link
-                    href={item === "Validate" ? "/dashboard/validate" : item === "Decision history" ? "/dashboard" : "#preview"}
+                    href={
+                      item === "Memo"
+                        ? "/auth?next=/dashboard/validate"
+                        : item === "Decision trail"
+                          ? "/dashboard"
+                          : item === "Private alpha"
+                            ? "/alpha"
+                            : "#preview"
+                    }
                     className="text-[14px] text-bone-1 transition-colors hover:text-bone-0"
                   >
                     {item}
@@ -68,9 +76,7 @@ export function EditorialFooter() {
 
         <div className="mt-16 flex flex-col gap-3 border-t border-bone-0/10 pt-6 md:flex-row md:items-center md:justify-between">
           <span className="mono-caption">© {year} {microcopy.footer.legal}</span>
-          <span className="mono-caption text-bone-2">
-            Built for founders who can take a no.
-          </span>
+          <span className="mono-caption text-bone-2">Calm pacing · sharp read · no leaderboard cosplay.</span>
         </div>
       </div>
     </footer>

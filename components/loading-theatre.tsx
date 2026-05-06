@@ -15,6 +15,29 @@ const AGENTS = [
   { tag: "VAL", name: "Validation", line: "48h test: 12 paid pilots or kill it. No moral victories." },
 ]
 
+const PHASE_LINES: Record<number, string[]> = {
+  0: [
+    "Parsing claim surface and stripping optimism noise.",
+    "Locating real buyer, real pain, real urgency.",
+    "Extracting assumptions that can actually fail.",
+  ],
+  1: [
+    "Pulling country and segment-specific market signal.",
+    "Comparing willingness-to-pay against status-quo behavior.",
+    "Measuring competitor overlap and copyability risk.",
+  ],
+  2: [
+    "Contrasting reads land on the same sentences with different reads.",
+    "Disagreement stays legible — nothing averaged for comfort.",
+    "Soft claims become testable because they are named plainly.",
+  ],
+  3: [
+    "A single ruling language is tightening — still revisable tomorrow.",
+    "If-works / if-fails arcs are written soberly beside it.",
+    "A 48-hour pressure arc attaches without moralizing hustle.",
+  ],
+}
+
 /**
  * LoadingTheatre — full-screen 4-phase reveal.
  *
@@ -37,11 +60,12 @@ export function LoadingTheatre({
   const reduce = useReducedMotion()
   const [phase, setPhase] = useState(0) // 0..3
   const [revealed, setRevealed] = useState(0) // # agents revealed
+  const [phaseLineIdx, setPhaseLineIdx] = useState(0)
 
   useEffect(() => {
-    const t1 = setTimeout(() => setPhase(1), 1800)
-    const t2 = setTimeout(() => setPhase(2), 4400)
-    const t3 = setTimeout(() => setPhase(3), 14000)
+    const t1 = setTimeout(() => setPhase(1), 1200)
+    const t2 = setTimeout(() => setPhase(2), 2800)
+    const t3 = setTimeout(() => setPhase(3), 5200)
     return () => {
       clearTimeout(t1)
       clearTimeout(t2)
@@ -56,6 +80,16 @@ export function LoadingTheatre({
       i += 1
       setRevealed(i)
       if (i >= AGENTS.length) clearInterval(id)
+    }, 450)
+    return () => clearInterval(id)
+  }, [phase])
+
+  useEffect(() => {
+    setPhaseLineIdx(0)
+    const lines = PHASE_LINES[phase] || []
+    if (lines.length <= 1) return
+    const id = setInterval(() => {
+      setPhaseLineIdx((prev) => (prev + 1) % lines.length)
     }, 950)
     return () => clearInterval(id)
   }, [phase])
@@ -135,7 +169,7 @@ export function LoadingTheatre({
               <div className="max-w-[640px] text-center">
                 <p className="mono-caption mb-6">phase 01 — decode</p>
                 <p className="font-serif text-[clamp(28px,4vw,48px)] leading-snug">
-                  {microcopy.loading.phases[0].line}
+                  {PHASE_LINES[0][phaseLineIdx] || microcopy.loading.phases[0].line}
                 </p>
               </div>
             </motion.section>
@@ -153,7 +187,7 @@ export function LoadingTheatre({
               <div className="col-span-12 md:col-span-5">
                 <p className="mono-caption mb-6">phase 02 — research</p>
                 <p className="font-serif text-[clamp(28px,3.4vw,40px)] leading-snug">
-                  {microcopy.loading.phases[1].line}
+                  {PHASE_LINES[1][phaseLineIdx] || microcopy.loading.phases[1].line}
                 </p>
               </div>
               <div className="col-span-12 md:col-span-7">
@@ -208,7 +242,7 @@ export function LoadingTheatre({
                 <p className="mono-caption mb-6">phase 04 — rule</p>
                 <VerdictReveal text={verdictHint} />
                 <p className="mt-8 font-serif text-[20px] italic text-bone-1">
-                  {microcopy.loading.phases[3].line}
+                  {PHASE_LINES[3][phaseLineIdx] || microcopy.loading.phases[3].line}
                 </p>
                 {finished && (
                   <p className="mono-caption mt-10 text-bone-2">
@@ -272,17 +306,18 @@ function VerdictReveal({ text }: { text: string }) {
       : text === "PIVOT"
       ? "text-verdict-pivot"
       : "text-verdict-kill"
+  const toneDelay = Math.max(0.28, text.length * 0.09)
   return (
     <div
-      className={`font-sans text-[clamp(80px,12vw,180px)] font-semibold leading-none tracking-[-0.04em] ${tone}`}
+      className={`font-sans text-[clamp(80px,12vw,180px)] font-semibold leading-none tracking-[-0.04em] text-bone-0 ${tone}`}
       aria-live="polite"
     >
       {text.split("").map((c, i) => (
         <motion.span
           key={i}
           initial={{ opacity: 0, y: 32 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.4, delay: 0.08 * i, ease: ease.editorial }}
+          animate={{ opacity: 1, y: 0, color: ["rgb(245 245 242)", "rgb(245 245 242)", "currentColor"] }}
+          transition={{ duration: 0.28, delay: 0.08 * i, ease: ease.editorial, color: { delay: toneDelay } }}
           className="inline-block"
         >
           {c}

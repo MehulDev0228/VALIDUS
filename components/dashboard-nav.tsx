@@ -6,6 +6,7 @@ import { usePathname, useRouter } from "next/navigation"
 import { motion, AnimatePresence } from "framer-motion"
 import { useAuth } from "@/contexts/auth-context"
 import { ease } from "@/lib/motion"
+import { microcopy } from "@/lib/microcopy"
 
 /**
  * DashboardNav — single hairline header that replaces the legacy sidebar.
@@ -28,9 +29,11 @@ export function DashboardNav() {
     return () => window.removeEventListener("scroll", onScroll)
   }, [])
 
+  const dn = microcopy.dashboard.nav
   const links = [
-    { href: "/dashboard", label: "Ledger" },
-    { href: "/dashboard/validate", label: "File a memo" },
+    { href: "/dashboard", label: dn.home },
+    { href: "/dashboard/founder", label: dn.workspace },
+    { href: "/dashboard/validate", label: dn.memo },
   ]
 
   const isActive = (href: string) =>
@@ -78,7 +81,7 @@ export function DashboardNav() {
 
         <div className="flex items-center gap-4">
           <Link href="/dashboard/validate" className="tab-cta hidden md:inline-flex" data-cursor="file">
-            <span>File a memo</span>
+            <span>{dn.memo}</span>
             <span className="tab-cta-arrow">→</span>
           </Link>
 
@@ -87,7 +90,7 @@ export function DashboardNav() {
             onClick={() => setOpen((v) => !v)}
             aria-expanded={open}
             aria-label="Account"
-            className="flex items-center gap-3 border border-bone-0/10 px-3 py-1.5 transition-colors hover:border-bone-0/40"
+            className="flex items-center gap-3 border border-bone-0/[0.07] px-3 py-1.5 transition-colors hover:border-bone-0/25"
             data-cursor="read"
           >
             <span className="grid h-6 w-6 place-items-center bg-bone-0 text-[11px] font-medium text-ink-0">
@@ -106,7 +109,7 @@ export function DashboardNav() {
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -6 }}
             transition={{ duration: 0.28, ease: ease.editorial }}
-            className="absolute right-6 top-[calc(100%+8px)] w-[280px] border border-bone-0/10 bg-ink-1 p-5 md:right-10"
+            className="absolute right-6 top-[calc(100%+8px)] w-[280px] border border-bone-0/[0.07] bg-ink-1/95 p-5 backdrop-blur-sm md:right-10"
           >
             <div className="mono-caption mb-4 tabular text-bone-2">{user?.email || "anonymous session"}</div>
             <div className="space-y-1 border-y border-bone-0/[0.06] py-2">
@@ -115,21 +118,28 @@ export function DashboardNav() {
                 onClick={() => setOpen(false)}
                 className="block px-2 py-2 text-[14px] text-bone-1 hover:text-bone-0"
               >
-                Ledger
+                {dn.home}
+              </Link>
+              <Link
+                href="/dashboard/founder"
+                onClick={() => setOpen(false)}
+                className="block px-2 py-2 text-[14px] text-bone-1 hover:text-bone-0"
+              >
+                {dn.workspace}
               </Link>
               <Link
                 href="/dashboard/validate"
                 onClick={() => setOpen(false)}
                 className="block px-2 py-2 text-[14px] text-bone-1 hover:text-bone-0"
               >
-                File a memo
+                {dn.memo}
               </Link>
               <Link
                 href="/"
                 onClick={() => setOpen(false)}
                 className="block px-2 py-2 text-[14px] text-bone-1 hover:text-bone-0"
               >
-                Marketing site
+                {microcopy.dashboard.marketingSite}
               </Link>
             </div>
             <button

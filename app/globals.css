@@ -15,9 +15,12 @@
     --rule: 245 245 242;
     --rule-strong: 245 245 242;
 
-    --verdict-build: 184 229 50;
-    --verdict-pivot: 242 162 48;
-    --verdict-kill: 255 59 45;
+    --verdict-build: 162 210 72;
+    --verdict-pivot: 228 168 68;
+    --verdict-kill: 225 78 65;
+
+    --warmth: 255 248 240;
+    --whisper: 245 245 242;
 
     --background: 6 7 10;
     --foreground: 245 245 242;
@@ -142,8 +145,11 @@
     border: 1px solid rgb(245 245 242 / 0.2);
     background: transparent;
     overflow: hidden;
+    transform: translate3d(0, 0, 0) scale(1);
     transition: color 220ms cubic-bezier(0.32, 0.72, 0, 1),
-      border-color 220ms cubic-bezier(0.32, 0.72, 0, 1);
+      border-color 220ms cubic-bezier(0.32, 0.72, 0, 1),
+      transform 220ms cubic-bezier(0.32, 0.72, 0, 1),
+      box-shadow 220ms cubic-bezier(0.32, 0.72, 0, 1);
     cursor: pointer;
   }
   .tab-cta::before {
@@ -166,9 +172,15 @@
   .tab-cta:hover {
     color: rgb(6 7 10);
     border-color: rgb(245 245 242);
+    transform: translate3d(0, -1px, 0) scale(1.015);
+    box-shadow: 0 8px 22px rgb(0 0 0 / 0.24);
   }
   .tab-cta:hover .tab-cta-arrow {
-    transform: translateX(8px);
+    transform: translateX(10px);
+  }
+  .tab-cta:active {
+    transform: translate3d(0, 0, 0) scale(0.992);
+    box-shadow: 0 2px 8px rgb(0 0 0 / 0.2);
   }
   .tab-cta-arrow {
     transition: transform 220ms cubic-bezier(0.32, 0.72, 0, 1);
@@ -186,16 +198,7 @@
     display: none;
   }
 
-  /* Architectural grid background */
-  .grid-architecture {
-    background-image: linear-gradient(
-        to right,
-        rgb(245 245 242 / 0.03) 1px,
-        transparent 1px
-      ),
-      linear-gradient(to bottom, rgb(245 245 242 / 0.03) 1px, transparent 1px);
-    background-size: 80px 80px;
-  }
+  /* Removed: grid-architecture background — pure ink breathes better */
 
   /* Verdict pulse line — used in nav bottom */
   .verdict-pulse-track {
@@ -215,7 +218,7 @@
       rgb(245 245 242 / 0.4),
       transparent
     );
-    animation: verdict-pulse 6s linear infinite;
+    animation: verdict-pulse 8s linear infinite;
   }
 
   @keyframes verdict-pulse {

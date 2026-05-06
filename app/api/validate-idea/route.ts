@@ -83,6 +83,9 @@ export async function POST(request: NextRequest) {
           ...cached.metadata,
           cached: true,
           generatedAt: new Date().toISOString(),
+          degraded: cached.metadata?.degraded ?? false,
+          degradedReason: cached.metadata?.degradedReason ?? null,
+          enginePath: cached.metadata?.enginePath ?? "gemini_pipeline",
         },
       }
       return NextResponse.json(

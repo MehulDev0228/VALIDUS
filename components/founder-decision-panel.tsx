@@ -11,6 +11,12 @@ import {
   readValidationAttempts,
 } from "@/lib/founder-workflow/storage"
 import type { IdeaInput } from "@/lib/schemas/idea"
+import { useAuth } from "@/contexts/auth-context"
+import { inferExperimentObservationTags } from "@/lib/founder-memory/experiment-tags"
+import { extractMemoProgressionSnapshot } from "@/lib/founder-memory/extract-memo-snapshot"
+import type { VerdictLean } from "@/lib/founder-memory/types"
+import { ReflectionPromptStrip } from "@/components/reflection-prompt-strip"
+import { microcopy } from "@/lib/microcopy"
 
 type Props = {
   validation: Record<string, unknown>
@@ -50,7 +56,9 @@ type RefinedDraft = {
  * inline list, so this panel intentionally does not duplicate it.
  */
 export function FounderDecisionPanel({ validation }: Props) {
+  const op = microcopy.operator
   const router = useRouter()
+  const { user } = useAuth()
   const [ideaId, setIdeaId] = useState<string | null>(null)
   const [lastInput, setLastInput] = useState<IdeaInput | null>(null)
   const [attempts, setAttempts] = useState<ValidationAttempt[]>([])
@@ -62,6 +70,12 @@ export function FounderDecisionPanel({ validation }: Props) {
   const [refined, setRefined] = useState<RefinedDraft | null>(null)
   const [logBusy, setLogBusy] = useState(false)
   const [logError, setLogError] = useState<string | null>(null)
+  const [experimentReflectionGeneration, setExperimentReflectionGeneration] = useState(0)
+
+  const panelVerdict = useMemo((): VerdictLean => {
+    const v = (validation as Record<string, unknown> & { finalVerdict?: { decision?: string } })?.finalVerdict?.decision
+    return v === "BUILD" || v === "KILL" || v === "PIVOT" ? v : "PIVOT"
+  }, [validation])
 
   const ideaKey = useMemo(() => {
     if (!lastInput?.title) return ""
@@ -132,6 +146,14 @@ export function FounderDecisionPanel({ validation }: Props) {
     if (!hist.some((h) => h.ideaId === ideaId)) {
       const verdict = (validation as any).finalVerdict?.decision as DecisionRecord["verdict"] | undefined
       const createdAt = new Date().toISOString()
+      const ideaKeyStable = ideaKeyFromIdea({
+        title: lastInput.title,
+        description: lastInput.description || "",
+      })
+      const memoSnapshot = extractMemoProgressionSnapshot(
+        validation as Record<string, unknown>,
+        verdict ?? "PIVOT",
+      )
       appendDecisionRecord({
         id: ideaId,
         ideaId,
@@ -156,9 +178,28 @@ export function FounderDecisionPanel({ validation }: Props) {
           timestamp: createdAt,
         }),
       }).catch(() => {})
+
+      if (user?.id) {
+        void fetch("/api/founder-memory/events", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            kind: "validation_verdict",
+            ideaId,
+            ideaKey: ideaKeyStable,
+            ideaTitle: lastInput.title,
+            ideaExcerpt: (lastInput.description || "").slice(0, 1200),
+            verdict: verdict ?? "PIVOT",
+            opportunityScore: (validation as any).opportunityScore,
+            summary: (validation as any).finalVerdict?.brutalSummary ?? (validation as any).summary,
+            memoSnapshot,
+            at: createdAt,
+          }),
+        }).catch(() => {})
+      }
     }
     void refreshAttempts()
-  }, [validation, ideaId, lastInput, refreshAttempts])
+  }, [validation, ideaId, lastInput, refreshAttempts, user?.id])
 
   const planner = (validation as any).executionPlanner48h as PlannerStep[] | undefined
 
@@ -178,33 +219,67 @@ export function FounderDecisionPanel({ validation }: Props) {
     }
     setLogBusy(true)
     const ts = new Date().toISOString()
+    const action = actionTaken.trim()
+    const result = resultText.trim()
+    const learn = learnings.trim()
     try {
       await fetch("/api/validation-log", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           ideaId,
-          actionTaken: actionTaken.trim(),
-          result: resultText.trim(),
-          learnings: learnings.trim(),
+          actionTaken: action,
+          result,
+          learnings: learn,
           timestamp: ts,
         }),
       })
     } catch {
       // server may be unavailable; local mirror keeps the entry safe
     }
+    if (user?.id) {
+      const observationTags = inferExperimentObservationTags(action, result, learn)
+      const lineageKey = ideaKeyFromIdea({
+        title: lastInput.title,
+        description: lastInput.description || "",
+      })
+      void fetch("/api/founder-memory/events", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          kind: "experiment",
+          ideaId,
+          ideaKey: lineageKey,
+          ideaTitle: lastInput.title,
+          actionTaken: action,
+          outcome: result,
+          learnings: learn,
+          observationTags,
+          at: ts,
+        }),
+      }).catch(() => {})
+      void fetch("/api/product-events", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "same-origin",
+        body: JSON.stringify({
+          events: [{ kind: "experiment_logged", ideaId, ideaKey: lineageKey, verdict: panelVerdict }],
+        }),
+      }).catch(() => {})
+    }
     appendValidationAttempt({
       ideaKey,
       ideaTitle: lastInput.title,
-      actionTaken: actionTaken.trim(),
-      result: resultText.trim(),
-      learnings: learnings.trim(),
+      actionTaken: action,
+      result,
+      learnings: learn,
     })
     setActionTaken("")
     setResultText("")
     setLearnings("")
     setLogBusy(false)
     void refreshAttempts()
+    setExperimentReflectionGeneration((g) => g + 1)
   }
 
   async function handleIterate() {
@@ -269,7 +344,7 @@ export function FounderDecisionPanel({ validation }: Props) {
   return (
     <div className="space-y-16">
       {/* 48-hour plan */}
-      <Block label="48-hour plan" title="Falsify or fold." caption="every step has a stop condition">
+      <Block label={op.planLabel} title={op.planTitle} caption={op.planCaption}>
         {planner && planner.length > 0 ? (
           <ol className="divide-y divide-bone-0/[0.06] border-y border-bone-0/[0.06]">
             {planner.map((step, i) => (
@@ -313,7 +388,7 @@ export function FounderDecisionPanel({ validation }: Props) {
       </Block>
 
       {/* Validation tracker */}
-      <Block label="Validation tracker" title="Log what actually happened." caption="this feeds the iteration engine">
+      <Block label={op.trackerLabel} title={op.trackerTitle} caption={op.trackerCaption}>
         <div className="grid gap-px border border-bone-0/10 bg-bone-0/10 md:grid-cols-3">
           <Field
             label="Action taken"
@@ -353,10 +428,23 @@ export function FounderDecisionPanel({ validation }: Props) {
         </div>
         {logError && (
           <div className="mt-4 border-l-2 border-verdict-kill bg-verdict-kill/[0.04] px-4 py-3">
-            <span className="mono-caption text-verdict-kill">REFUSED</span>
+            <span className="mono-caption text-bone-2">Blocked</span>
             <p className="mt-1 text-[14px] text-bone-0">{logError}</p>
           </div>
         )}
+
+        {experimentReflectionGeneration > 0 ? (
+          <div className="mt-10">
+            <ReflectionPromptStrip
+              key={experimentReflectionGeneration}
+              ideaId={ideaId}
+              ideaKey={ideaKey || null}
+              verdict={panelVerdict}
+              trigger="post_experiment"
+              revealImmediately
+            />
+          </div>
+        ) : null}
 
         {attempts.length > 0 && (
           <ul className="mt-10 divide-y divide-bone-0/[0.06] border-y border-bone-0/[0.06]">
@@ -378,7 +466,7 @@ export function FounderDecisionPanel({ validation }: Props) {
       </Block>
 
       {/* Iteration engine */}
-      <Block label="Iteration engine" title="Rewrite the brief, sharper." caption="uses this run + your tracker entries">
+      <Block label={op.iterateLabel} title={op.iterateTitle} caption={op.iterateCaption}>
         <div className="flex flex-wrap items-center gap-4">
           <button
             type="button"
@@ -396,7 +484,7 @@ export function FounderDecisionPanel({ validation }: Props) {
         </div>
         {iterateError && (
           <div className="mt-4 border-l-2 border-verdict-kill bg-verdict-kill/[0.04] px-4 py-3">
-            <span className="mono-caption text-verdict-kill">REFUSED</span>
+            <span className="mono-caption text-bone-2">Blocked</span>
             <p className="mt-1 text-[14px] text-bone-0">{iterateError}</p>
           </div>
         )}

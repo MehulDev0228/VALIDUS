@@ -94,22 +94,20 @@ export function AgentRoster() {
       <div className="mx-auto max-w-[1200px] px-6 md:px-10">
         <div className="grid grid-cols-1 gap-8 md:grid-cols-12 md:gap-16">
           <div className="md:col-span-5">
-            <p className="mono-caption">04 — The bench</p>
+            <p className="mono-caption">04 · Perspective stack</p>
             <h2 className="mt-6 font-serif text-[clamp(36px,5vw,68px)] leading-[1.02] tracking-[-0.03em]">
-              Seven specialists.
+              Seven tension lenses.
               <br />
-              <em className="font-serif italic text-bone-1">One judge.</em>
+              <em className="font-serif italic text-bone-1">One decision frame.</em>
             </h2>
             <p className="mt-8 max-w-[420px] text-[16px] leading-[1.55] text-bone-1">
-              No general-purpose chat. Each agent has one job, one weapon, and one tone. They don't agree to be polite. They argue, on the record.
+              Not a swarm of chat personas. Each lens reads your brief from a hardened angle so contradictions survive long enough for you to see them clearly.
             </p>
-            <div className="mt-8 inline-flex items-center gap-3 border border-bone-0/[0.08] px-4 py-3">
+            <div className="mt-8 inline-flex items-center gap-3 bg-bone-0/[0.03] px-4 py-3">
               <span className="font-serif text-[20px] italic text-bone-0">+</span>
               <div>
-                <div className="mono-caption text-bone-2">Final Judge</div>
-                <div className="text-[14px] leading-snug text-bone-0">
-                  Reads everyone. Decides. Signs.
-                </div>
+                <div className="mono-caption text-bone-2">Closer read</div>
+                <div className="text-[14px] leading-snug text-bone-0">Synthesis + ruling language when the dust settles.</div>
               </div>
             </div>
           </div>

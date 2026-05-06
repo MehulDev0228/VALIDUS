@@ -124,6 +124,13 @@ export function MarketingNav() {
 
         <nav className="hidden items-center gap-6 md:flex">
           <SystemFlyout />
+          <Link
+            href="/alpha"
+            className="font-mono text-[11px] uppercase tracking-[0.16em] text-bone-1 transition-colors duration-200 hover:text-bone-0"
+            data-cursor="read"
+          >
+            {microcopy.nav.alphaShort}
+          </Link>
           <ValidateCta />
         </nav>
 
@@ -165,7 +172,14 @@ export function MarketingNav() {
                   onClick={() => setOpen(false)}
                   className="block font-serif text-[44px] leading-none tracking-tight"
                 >
-                  Validate an idea
+                  {microcopy.nav.cta}
+                </Link>
+                <Link
+                  href="/alpha"
+                  onClick={() => setOpen(false)}
+                  className="block font-serif text-[44px] leading-none tracking-tight text-bone-1"
+                >
+                  Private alpha
                 </Link>
                 <Link
                   href="#system"

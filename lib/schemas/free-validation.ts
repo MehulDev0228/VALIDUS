@@ -138,6 +138,10 @@ export const FreeValidationResponseSchema = z.object({
     dataFreshnessWarning: z.string().nullable().optional(),
     needsReview: z.boolean().optional(),
     needsReviewReason: z.string().nullable().optional(),
+    /** True when Gemini was not used or pipeline failed and heuristic ran */
+    degraded: z.boolean().optional(),
+    degradedReason: z.string().nullable().optional(),
+    enginePath: z.enum(["gemini_pipeline", "heuristic_fallback"]).optional(),
   }),
 })
 
