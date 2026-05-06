@@ -12,12 +12,14 @@ export interface ValidationAttempt {
 export interface DecisionRecord {
   id: string
   ideaId: string
-  ideaKey: string
-  title: string
+  ideaKey?: string
+  title?: string
+  ideaTitle?: string
   verdict: "BUILD" | "PIVOT" | "KILL"
   opportunityScore?: number
   summary?: string
-  createdAt: string
+  createdAt?: string
+  timestamp: string
 }
 
 export function ideaKeyFromIdea(idea: { title: string; description: string }): string {

@@ -137,9 +137,11 @@ export function FounderDecisionPanel({ validation }: Props) {
         ideaId,
         ideaKey: key,
         title: lastInput.title,
+        ideaTitle: lastInput.title,
         verdict: verdict ?? "PIVOT",
         opportunityScore: (validation as any).opportunityScore,
         summary: (validation as any).finalVerdict?.brutalSummary ?? (validation as any).summary,
+        timestamp: createdAt,
         createdAt,
       })
       void fetch("/api/decision-history", {

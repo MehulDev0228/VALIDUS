@@ -1,3 +1,5 @@
+import fs from "node:fs"
+import path from "node:path"
 import seedData from "./seed.json"
 import { type IdeaInput } from "@/lib/schemas/idea"
 import { type FreeValidationResponse } from "@/lib/schemas/free-validation"
@@ -39,9 +41,13 @@ let vectorIndex: KGVectorIndex | null = null
 function loadVectorIndex(): KGVectorIndex | null {
   if (vectorIndex !== null) return vectorIndex
   try {
-    // Using require here avoids bundling issues if the file is missing.
-    // eslint-disable-next-line @typescript-eslint/no-var-requires
-    const idx = require("../../data/kg/vector-index.json") as KGVectorIndex
+    const indexPath = path.join(process.cwd(), "data", "kg", "vector-index.json")
+    if (!fs.existsSync(indexPath)) {
+      vectorIndex = null
+      return null
+    }
+    const raw = fs.readFileSync(indexPath, "utf8")
+    const idx = JSON.parse(raw) as KGVectorIndex
     vectorIndex = idx
     return idx
   } catch {
@@ -668,14 +674,17 @@ export function heuristicFreeValidation(idea: IdeaInput): FreeValidationResponse
       {
         name: "CIBIL / Experian for businesses",
         reason: "Analogue: business credit bureaus that score repayment behaviour; you are proposing a similar reputational layer for trade payables in India.",
+        url: undefined,
       },
       {
         name: "Dun & Bradstreet-style business information",
         reason: "Analogue: B2B information providers whose scores influence who gets credit and on what terms.",
+        url: undefined,
       },
       {
         name: "Taulia / C2FO / Tradeshift",
         reason: "Analogue: platforms that use invoice and payment data to change how and when suppliers get paid.",
+        url: undefined,
       },
     ]
   }

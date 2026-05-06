@@ -1,7 +1,7 @@
 "use client"
 
 import type React from "react"
-import { useEffect, useMemo, useState } from "react"
+import { Suspense, useEffect, useMemo, useState } from "react"
 import Link from "next/link"
 import { motion, AnimatePresence } from "framer-motion"
 import { useRouter, useSearchParams } from "next/navigation"
@@ -18,6 +18,14 @@ type Tab = "in" | "up"
  * No card chrome, no glow, no gradients.
  */
 export default function AuthPage() {
+  return (
+    <Suspense fallback={<div className="min-h-screen bg-ink-0 text-bone-0" />}>
+      <AuthPageContent />
+    </Suspense>
+  )
+}
+
+function AuthPageContent() {
   const { signIn, signUp, signInWithGoogle, user, loading } = useAuth()
   const router = useRouter()
   const search = useSearchParams()
