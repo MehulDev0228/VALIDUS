@@ -76,8 +76,6 @@ export function HeroTriptych() {
       data-section="hero"
       className="relative isolate overflow-hidden border-b border-bone-0/[0.06] pt-32 pb-24 md:pt-40 md:pb-32"
     >
-      <div className="grid-architecture pointer-events-none absolute inset-0 [mask-image:radial-gradient(ellipse_70%_60%_at_50%_30%,black_55%,transparent_100%)]" />
-
       <div className="relative mx-auto max-w-[1440px] px-6 md:px-10">
         {/* Forensic file marker */}
         <div className="mb-10 flex items-center gap-3">

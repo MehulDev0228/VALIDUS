@@ -27,16 +27,16 @@ export const microcopy = {
     mobileMenuClose: "Close",
   },
   hero: {
-    eyebrow: "Reflection environment · private alpha",
+    eyebrow: "Private alpha",
     headlineLines: [
-      "Thinking in public",
-      "is exhausting.",
-      "Thinking on record cuts through.",
+      "The idea won\u2019t stop.",
+      "The doubt won\u2019t stop.",
+      "Start here.",
     ],
     subhead:
-      "A calm room for ambitious founders — file once, absorb contrasting reads and a single decision frame (BUILD · PIVOT · KILL) you can revisit when the doubt loop starts.",
-    ctaPrimary: "Start a memo",
-    ctaSecondary: "Browse a sample read",
+      "A private room for founders \u2014 file what you\u2019re thinking, receive a structured read with tensions and a single decision frame. No audience. No performance.",
+    ctaPrimary: "Begin a memo",
+    ctaSecondary: "See a sample read",
     triptychLabels: ["BUILD", "PIVOT", "KILL"],
     triptychSubs: ["wedge survives contact with reality", "right pain, brittle shape", "structural friction, not tweaks"],
   },
@@ -91,7 +91,7 @@ export const microcopy = {
     cta: "Begin",
   },
   footer: {
-    manifesto: "A private operating mood — not another AI-score toy.",
+    manifesto: "A private room for your thinking — not another AI-score toy.",
     columns: {
       product: ["Memo", "Sample read", "Decision trail", "Private alpha"],
       method: ["How it works", "The reads", "48h horizon"],
@@ -113,9 +113,9 @@ export const microcopy = {
     submitting: "Drafting…",
     counter: (used: number, max: number) => `${used}/${max} memos today`,
     errors: {
-      tooShort: "Needs more substrate — specifics so the read can contradict something real.",
+      tooShort: "Add more detail — specifics help the read contradict something real.",
       rateLimit:
-        "Daily quota reached for this workspace. Midnight UTC resets the window — tighten the thesis while you wait.",
+        "Today\u2019s window is full. Midnight UTC resets — tighten the thesis while you wait.",
       generic: "That pass did not complete. Nothing was discarded — adjust and retry.",
       network: "Connection dropped mid-flight. Your draft is intact — retry when steady.",
       timeout: "The compose pass timed out. Shorter drafts often land; retry when ready.",
@@ -211,14 +211,14 @@ Begin here when ready: [your app URL]/auth`,
     iterateCaption: "Drafts consume this memo + your receipts.",
   },
   dashboard: {
-    loading: "settling workspace…",
-    statusEyebrow: "Quiet mode · live",
+    loading: "settling workspace\u2026",
+    statusEyebrow: "Live",
     homeEmptyLead:
-      "Nothing filed yet — this stays sparse on purpose until you drop a memo. Your archive fills here, not on a feed.",
+      "Nothing on file yet. Start when the idea won\u2019t leave.",
     homeActiveLead:
       (count: number) =>
-        `${count} memo${count === 1 ? "" : "s"} archived — below is what your workspace remembers about tensions and receipts.`,
-    docketEyebrow: "Today's pacing",
+        `${count} memo${count === 1 ? "" : "s"} on file. Open the latest, or start fresh.`,
+    docketEyebrow: "Today",
     docketLimitCopy: {
       exhausted: "Window full. Let the clock reset overnight.",
       open: "Use the openings deliberately — sloppy drafts steal future you's attention.",
@@ -283,7 +283,7 @@ Begin here when ready: [your app URL]/auth`,
     skip: "Skip — keep sane defaults",
   },
   empty: {
-    decisions: "No filings yet. Archive opens with the first honest brief.",
-    attempts: "No execution receipts logged yet — when you ship tests, they'll live here quietly.",
+    decisions: "Your archive starts with one honest brief.",
+    attempts: "No experiments logged yet \u2014 they\u2019ll live here quietly when you run them.",
   },
 }

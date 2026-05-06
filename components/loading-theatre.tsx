@@ -63,9 +63,9 @@ export function LoadingTheatre({
   const [phaseLineIdx, setPhaseLineIdx] = useState(0)
 
   useEffect(() => {
-    const t1 = setTimeout(() => setPhase(1), 1200)
-    const t2 = setTimeout(() => setPhase(2), 2800)
-    const t3 = setTimeout(() => setPhase(3), 5200)
+    const t1 = setTimeout(() => setPhase(1), 3000)
+    const t2 = setTimeout(() => setPhase(2), 7000)
+    const t3 = setTimeout(() => setPhase(3), 14000)
     return () => {
       clearTimeout(t1)
       clearTimeout(t2)

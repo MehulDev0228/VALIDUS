@@ -75,8 +75,8 @@ export function MarketingNav() {
             <span className="absolute inset-0 rounded-full bg-bone-0/40" />
             <motion.span
               className="absolute inset-0 rounded-full bg-bone-0"
-              animate={reduce ? undefined : { scale: [1, 1.5, 1], opacity: [1, 0, 1] }}
-              transition={{ duration: 2.4, repeat: Infinity, ease: "easeInOut" }}
+              animate={reduce ? undefined : { opacity: [0.4, 0.9, 0.4] }}
+              transition={{ duration: 4, repeat: Infinity, ease: "easeInOut" }}
             />
           </span>
           <span className="font-mono text-[11px] uppercase tracking-[0.18em] text-bone-0">

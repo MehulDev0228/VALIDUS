@@ -1,8 +1,8 @@
 "use client"
 
-import { useEffect, useMemo, useRef, useState } from "react"
+import { useEffect, useMemo, useState } from "react"
 import Link from "next/link"
-import { motion, useInView } from "framer-motion"
+import { motion } from "framer-motion"
 import { useRouter } from "next/navigation"
 import { useAuth } from "@/contexts/auth-context"
 import { DashboardNav } from "@/components/dashboard-nav"
@@ -16,26 +16,6 @@ import { readDecisionHistory } from "@/lib/founder-workflow/storage"
 import type { DecisionRecord } from "@/lib/founder-workflow/types"
 
 type Verdict = "BUILD" | "PIVOT" | "KILL"
-
-const AGENTS = [
-  { code: "MR", name: "Market Research", tone: "neutral" as const },
-  { code: "CO", name: "Competitor", tone: "kill" as const },
-  { code: "MN", name: "Monetization", tone: "build" as const },
-  { code: "FE", name: "Feasibility", tone: "neutral" as const },
-  { code: "IC", name: "ICP", tone: "pivot" as const },
-  { code: "RF", name: "Risk & Failure", tone: "kill" as const },
-  { code: "VS", name: "Validation", tone: "build" as const },
-  { code: "FJ", name: "Final Judge", tone: "neutral" as const },
-]
-
-const toneClass = (tone: "build" | "pivot" | "kill" | "neutral") =>
-  tone === "build"
-    ? "bg-verdict-build"
-    : tone === "kill"
-      ? "bg-verdict-kill"
-      : tone === "pivot"
-        ? "bg-verdict-pivot"
-        : "bg-bone-0"
 
 function recordTimeMs(r: DecisionRecord): number {
   const raw = r.timestamp || r.createdAt
@@ -93,7 +73,6 @@ export default function DashboardPage() {
         }
         if (!j.onboarding) {
           router.replace(`/dashboard/onboarding?next=${encodeURIComponent("/dashboard")}`)
-          /** Stay in loading shell until onboarding route swaps in */
           return
         }
         setFm({
@@ -175,35 +154,6 @@ export default function DashboardPage() {
     return Array.from(byKey.values()).sort((a, b) => recordTimeMs(b) - recordTimeMs(a))
   }, [records, serverRecords])
 
-  const totals = useMemo(() => {
-    const t = { BUILD: 0, PIVOT: 0, KILL: 0 } as Record<Verdict, number>
-    merged.forEach((r) => {
-      const v = (r.verdict as Verdict) || "PIVOT"
-      if (t[v] != null) t[v] += 1
-    })
-    return t
-  }, [merged])
-
-  const stats = useMemo(() => {
-    const now = Date.now()
-    const SEVEN_DAYS = 7 * 24 * 60 * 60 * 1000
-    const lastSeven = merged.filter((r) => {
-      const ms = recordTimeMs(r)
-      return ms > 0 && now - ms < SEVEN_DAYS
-    })
-    const scores = merged
-      .map((r) => (r.opportunityScore != null ? Math.round(r.opportunityScore) : null))
-      .filter((s): s is number => s != null)
-    const avgScore = scores.length > 0 ? Math.round(scores.reduce((a, b) => a + b, 0) / scores.length) : null
-    const last = merged[0]
-    return {
-      week: lastSeven.length,
-      avgScore,
-      lastVerdict: (last?.verdict as Verdict) || null,
-      lastDate: last ? recordDateLabel(last) : null,
-    }
-  }, [merged])
-
   function handleQuickFile() {
     if (!draft.trim() || draft.trim().length < 8) return
     try {
@@ -233,108 +183,82 @@ export default function DashboardPage() {
   const limit = usage?.limit ?? 2
   const remaining = Math.max(0, limit - used)
   const limitReached = remaining === 0
-  const greeting = greetingFor(user)
+  const contextLine = getContextLine(merged.length, merged[0])
 
   return (
     <div className="min-h-screen bg-ink-0 text-bone-0">
       <DashboardNav />
 
-      <main className="mx-auto max-w-[1440px] px-6 pb-32 pt-12 md:px-10">
-        {/* COMMAND STRIP — usage meter + greeting */}
-        <motion.section
-          initial={{ opacity: 0, y: 12 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.6, ease: ease.editorial }}
-          className="grid grid-cols-1 gap-8 border-b border-bone-0/[0.05] pb-12 md:grid-cols-12 md:gap-10 md:pb-16"
+      <main className="mx-auto max-w-[1040px] px-6 pb-32 pt-8 md:px-10 md:pt-12">
+        {/* CONTEXT LINE — quiet, informative, non-dominant */}
+        <motion.div
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          transition={{ duration: 0.5, ease: ease.editorial }}
+          className="flex flex-wrap items-center justify-between gap-3"
         >
-          <div className="md:col-span-7">
-            <div className="flex items-center gap-3">
-              <span className="inline-flex h-2 w-2 bg-bone-0/80" aria-hidden />
-              <span className="mono-caption tabular text-bone-1">
-                {dboard.statusEyebrow} · {new Date().toUTCString().slice(17, 25)} UTC
+          <p className="text-[15px] leading-relaxed text-bone-1">
+            {contextLine}
+          </p>
+          <span className="mono-caption tabular text-bone-2">
+            {remaining} of {limit} today
+            {limitReached && usage?.resetInSeconds ? (
+              <span> · resets in <ResetCountdown seconds={usage.resetInSeconds} /></span>
+            ) : null}
+          </span>
+        </motion.div>
+
+        {/* QUICK BRIEF — the hero element. Notebook energy. */}
+        <motion.section
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          transition={{ duration: 0.6, delay: 0.1, ease: ease.editorial }}
+          className="mt-8 md:mt-10"
+        >
+          <div className="bg-bone-0/[0.025] p-6 md:p-8" data-cursor="input">
+            <textarea
+              rows={2}
+              value={draft}
+              disabled={limitReached}
+              onChange={(e) => {
+                setDraft(e.target.value)
+                autosize(e.currentTarget)
+              }}
+              onKeyDown={(e) => {
+                if ((e.metaKey || e.ctrlKey) && e.key === "Enter") handleQuickFile()
+              }}
+              placeholder={
+                limitReached
+                  ? dboard.quickBriefPlaceholderDisabled
+                  : "The idea that won\u2019t leave\u2026"
+              }
+              className="w-full resize-none border-0 bg-transparent font-serif text-[clamp(22px,2.8vw,36px)] leading-[1.25] tracking-[-0.015em] text-bone-0 placeholder:text-bone-2/50 focus:outline-none disabled:opacity-40"
+              autoFocus
+            />
+
+            <div className="mt-5 flex flex-wrap items-center justify-between gap-3 border-t border-bone-0/[0.05] pt-4">
+              <span className="mono-caption tabular text-bone-2">
+                {draft.length > 0 ? `${draft.length} chars` : ""} {draft.length > 0 ? "· " : ""}⌘⏎ to file
               </span>
+              <button
+                type="button"
+                onClick={handleQuickFile}
+                disabled={limitReached || draft.trim().length < 8}
+                className={`tab-cta ${limitReached || draft.trim().length < 8 ? "pointer-events-none opacity-40" : ""}`}
+              >
+                <span>{dboard.quickBriefSubmit}</span>
+                <span className="tab-cta-arrow">→</span>
+              </button>
             </div>
-
-            <h1 className="mt-6 font-serif text-[clamp(40px,5.5vw,84px)] leading-[1.0] tracking-[-0.03em]">
-              {greeting},
-              <br />
-              <em className="font-serif italic text-bone-1">
-                {nameFor(user)}.
-              </em>
-            </h1>
-
-            <p className="mt-6 max-w-[560px] text-[16px] leading-[1.55] text-bone-1">
-              {merged.length === 0 ? dboard.homeEmptyLead : dboard.homeActiveLead(merged.length)}
-            </p>
-          </div>
-
-          <div className="md:col-span-5">
-            <UsageMeter used={used} limit={limit} resetInSeconds={usage?.resetInSeconds ?? 0} />
           </div>
         </motion.section>
 
-        <DashboardOperatingSpine
-          journeyLines={fm.journeyLines}
-          execution={fm.execution}
-          progression={fm.progression}
-          blindSpots={fm.blindSpots}
-        />
-
-        {/* QUICK BRIEF — inline file input on dashboard */}
-        <QuickBrief
-          value={draft}
-          onChange={setDraft}
-          onSubmit={handleQuickFile}
-          disabled={limitReached}
-          remaining={remaining}
-          limit={limit}
-        />
-
-        {/* AGENT BENCH — live ready strip */}
-        <PerspectiveStack />
-
-        {/* PACE BLOCK */}
-        <motion.section
-          initial={{ opacity: 0, y: 12 }}
-          whileInView={{ opacity: 1, y: 0 }}
-          viewport={{ once: true, margin: "-15%" }}
-          transition={{ duration: 0.55, ease: ease.editorial }}
-          className="mt-20 grid grid-cols-2 gap-3 md:grid-cols-4 md:gap-4"
-        >
-          <PaceTile label={dboard.trajectoryLabel} value={merged.length.toString().padStart(2, "0")} />
-          <PaceTile label={dboard.weekLabel} value={stats.week.toString().padStart(2, "0")} />
-          <PaceTile
-            label={dboard.scoreLabel}
-            value={stats.avgScore != null ? `${stats.avgScore}` : "—"}
-            sub={stats.avgScore != null ? "/100" : undefined}
-          />
-          <PaceTile
-            label={dboard.lastFrameLabel}
-            value={stats.lastVerdict ?? "—"}
-            tone={
-              stats.lastVerdict === "BUILD"
-                ? "build"
-                : stats.lastVerdict === "KILL"
-                  ? "kill"
-                  : stats.lastVerdict === "PIVOT"
-                    ? "pivot"
-                    : "neutral"
-            }
-          />
-        </motion.section>
-
-        {/* LEDGER */}
-        <motion.section
-          initial={{ opacity: 0, y: 12 }}
-          whileInView={{ opacity: 1, y: 0 }}
-          viewport={{ once: true, margin: "-15%" }}
-          transition={{ duration: 0.6, ease: ease.editorial }}
-          className="mt-24"
-        >
-          <header className="mb-6 flex items-end justify-between border-b border-bone-0/[0.06] pb-6">
+        {/* DECISION LEDGER — the journal */}
+        <section className="mt-16 md:mt-20">
+          <header className="mb-5 flex items-end justify-between border-b border-bone-0/[0.06] pb-5">
             <div>
               <p className="mono-caption">{dboard.ledgerEyebrow}</p>
-              <h2 className="mt-2 font-serif text-[clamp(28px,3.4vw,40px)] leading-tight tracking-[-0.02em]">
+              <h2 className="mt-2 font-serif text-[clamp(24px,3vw,36px)] leading-tight tracking-[-0.02em]">
                 {dboard.ledgerTitle}
               </h2>
             </div>
@@ -352,21 +276,29 @@ export default function DashboardPage() {
           ) : (
             <ul className="border-y border-bone-0/[0.08]">
               {merged.slice(0, 12).map((r, i) => (
-                <RecordRow key={`${r.ideaId}-${r.timestamp}-${i}`} r={r} index={i} />
+                <RecordRow key={`${r.ideaId}-${r.timestamp}-${i}`} r={r} />
               ))}
             </ul>
           )}
 
           {merged.length > 12 && (
-            <p className="mono-caption mt-6 tabular text-bone-2">
+            <p className="mono-caption mt-5 tabular text-bone-2">
               {merged.length - 12} {microcopy.dashboard.archivedMore}
             </p>
           )}
-        </motion.section>
+        </section>
 
-        <p className="mono-caption mt-20 tabular text-bone-2">
-          {dboard.sessionEyebrow} — {user.email || "anonymous"} · ID {user.id.slice(0, 12)}…
-        </p>
+        {/* OPERATING SPINE — secondary context, lower on page */}
+        {(fm.journeyLines.length > 0 || fm.execution || fm.progression || fm.blindSpots.length > 0) && (
+          <section className="mt-20">
+            <DashboardOperatingSpine
+              journeyLines={fm.journeyLines}
+              execution={fm.execution}
+              progression={fm.progression}
+              blindSpots={fm.blindSpots}
+            />
+          </section>
+        )}
       </main>
     </div>
   )
@@ -375,67 +307,6 @@ export default function DashboardPage() {
 /* -------------------------------------------------------------------------- */
 /*  Sub-components                                                            */
 /* -------------------------------------------------------------------------- */
-
-function UsageMeter({
-  used,
-  limit,
-  resetInSeconds,
-}: {
-  used: number
-  limit: number
-  resetInSeconds: number
-}) {
-  const remaining = Math.max(0, limit - used)
-  const tone = remaining === 0 ? "kill" : remaining === limit ? "build" : "pivot"
-  const toneText =
-    tone === "kill" ? "text-verdict-kill" : tone === "build" ? "text-verdict-build" : "text-verdict-pivot"
-
-  const dboard = microcopy.dashboard
-  const docketCopy =
-    remaining === 0
-      ? dboard.docketLimitCopy.exhausted
-      : remaining === limit
-        ? dboard.docketLimitCopy.open
-        : remaining === 1
-          ? dboard.docketLimitCopy.oneLeft
-          : dboard.docketLimitCopy.mid
-
-  return (
-    <div className="bg-gradient-to-b from-bone-0/[0.04] to-transparent p-6 md:p-8" data-cursor="watching">
-      <div className="flex items-baseline justify-between">
-        <p className="mono-caption">{dboard.docketEyebrow}</p>
-        <p className="mono-caption tabular text-bone-2">UTC</p>
-      </div>
-
-      <div className="mt-4 flex items-baseline gap-4">
-        <div className={`tabular font-sans text-[clamp(56px,8vw,96px)] font-medium leading-none tracking-[-0.04em] ${toneText}`}>
-          {used}
-        </div>
-        <div className="font-serif text-[28px] italic text-bone-2">/ {limit}</div>
-      </div>
-
-      <div className="mt-6 grid grid-cols-2 gap-2">
-        {Array.from({ length: limit }).map((_, i) => {
-            const filled = i < used
-          return (
-            <div
-              key={i}
-              className={`h-2.5 ${filled ? "bg-bone-0/90" : "bg-bone-0/10"}`}
-              aria-hidden
-            />
-          )
-        })}
-      </div>
-
-      <div className="mt-6 flex flex-wrap items-center justify-between gap-4 border-t border-bone-0/[0.05] pt-4">
-        <p className="text-[13px] leading-snug text-bone-1">{docketCopy}</p>
-        <p className="mono-caption tabular text-bone-2">
-          resets in <ResetCountdown seconds={resetInSeconds} />
-        </p>
-      </div>
-    </div>
-  )
-}
 
 function ResetCountdown({ seconds }: { seconds: number }) {
   const [s, setS] = useState(seconds)
@@ -447,184 +318,28 @@ function ResetCountdown({ seconds }: { seconds: number }) {
   if (s <= 0) return <span className="tabular">—</span>
   const h = Math.floor(s / 3600)
   const m = Math.floor((s % 3600) / 60)
-  const ss = s % 60
   return (
     <span className="tabular">
-      {String(h).padStart(2, "0")}:{String(m).padStart(2, "0")}:{String(ss).padStart(2, "0")}
+      {h}h {String(m).padStart(2, "0")}m
     </span>
   )
 }
 
-function QuickBrief({
-  value,
-  onChange,
-  onSubmit,
-  disabled,
-  remaining,
-  limit,
-}: {
-  value: string
-  onChange: (v: string) => void
-  onSubmit: () => void
-  disabled: boolean
-  remaining: number
-  limit: number
-}) {
-  function autosize(el: HTMLTextAreaElement | null) {
-    if (!el) return
-    el.style.height = "auto"
-    el.style.height = `${Math.min(el.scrollHeight, 200)}px`
-  }
-
-  return (
-    <motion.section
-      initial={{ opacity: 0, y: 12 }}
-      whileInView={{ opacity: 1, y: 0 }}
-      viewport={{ once: true, margin: "-15%" }}
-      transition={{ duration: 0.55, ease: ease.editorial }}
-      className="mt-12 border-b border-bone-0/[0.08] pb-12 md:mt-16 md:pb-16"
-    >
-      <div className="grid grid-cols-1 gap-6 md:grid-cols-12 md:gap-10">
-        <div className="md:col-span-3">
-          <p className="mono-caption">{microcopy.dashboard.quickBriefEyebrow}</p>
-          <p className="mt-3 max-w-[280px] text-[14px] leading-snug text-bone-1">{microcopy.dashboard.quickBriefLead}</p>
-        </div>
-
-        <div className="md:col-span-9">
-          <div className="bg-bone-0/[0.035] p-5 md:p-6" data-cursor="input">
-            <textarea
-              rows={1}
-              value={value}
-              disabled={disabled}
-              onChange={(e) => {
-                onChange(e.target.value)
-                autosize(e.currentTarget)
-              }}
-              onKeyDown={(e) => {
-                if ((e.metaKey || e.ctrlKey) && e.key === "Enter") onSubmit()
-              }}
-              placeholder={
-                disabled
-                  ? microcopy.dashboard.quickBriefPlaceholderDisabled
-                  : microcopy.dashboard.quickBriefPlaceholder
-              }
-              className="w-full resize-none border-0 bg-transparent font-serif text-[clamp(20px,2.4vw,32px)] leading-[1.2] tracking-[-0.015em] text-bone-0 placeholder:text-bone-2/70 focus:outline-none disabled:opacity-50"
-            />
-
-            <div className="mt-4 flex flex-wrap items-center justify-between gap-3 border-t border-bone-0/[0.05] pt-4">
-              <span className="mono-caption tabular text-bone-2">
-                {value.length > 0 ? `${value.length} chars` : "0 chars"} · ⌘⏎ to file
-              </span>
-              <button
-                type="button"
-                onClick={onSubmit}
-                disabled={disabled || value.trim().length < 8}
-                className={`tab-cta ${disabled || value.trim().length < 8 ? "pointer-events-none opacity-40" : ""}`}
-              >
-                <span>{microcopy.dashboard.quickBriefSubmit}</span>
-                <span className="tab-cta-arrow">→</span>
-              </button>
-            </div>
-          </div>
-          <p className="mono-caption mt-3 text-bone-2">
-            {remaining}/{limit} slots remain today.
-          </p>
-        </div>
-      </div>
-    </motion.section>
-  )
-}
-
-function PerspectiveStack() {
-  const ref = useRef<HTMLDivElement | null>(null)
-  const inView = useInView(ref, { once: true, margin: "-15%" })
-  const d = microcopy.dashboard
-
-  return (
-    <motion.section
-      ref={ref}
-      initial={{ opacity: 0 }}
-      animate={inView ? { opacity: 1 } : {}}
-      transition={{ duration: 0.55, ease: ease.editorial }}
-      className="mt-14 md:mt-20"
-    >
-      <header className="mb-5 flex flex-wrap items-baseline justify-between gap-2">
-        <p className="mono-caption">{d.perspectiveStackEyebrow}</p>
-        <p className="mono-caption text-bone-2">{d.perspectiveStackSub}</p>
-      </header>
-      <div className="grid grid-cols-4 gap-2 md:grid-cols-8 md:gap-3">
-        {AGENTS.map((a, i) => (
-          <motion.div
-            key={a.code}
-            initial={{ opacity: 0, y: 4 }}
-            animate={inView ? { opacity: 1, y: 0 } : {}}
-            transition={{ duration: 0.35, delay: 0.025 * i, ease: ease.editorial }}
-            className="group relative bg-bone-0/[0.025] px-3 py-4 transition-colors duration-300 hover:bg-bone-0/[0.045]"
-            data-cursor="dossier"
-          >
-            <div className="flex items-center gap-2">
-              <span className={`h-1 w-1 rounded-full ${toneClass(a.tone)} opacity-70`} aria-hidden />
-              <span className="mono-caption tabular text-bone-2">{a.code}</span>
-            </div>
-            <div className="mt-3 font-serif text-[14px] leading-snug tracking-[-0.01em] text-bone-0">{a.name}</div>
-          </motion.div>
-        ))}
-      </div>
-    </motion.section>
-  )
-}
-
-function PaceTile({
-  label,
-  value,
-  sub,
-  tone,
-}: {
-  label: string
-  value: string
-  sub?: string
-  tone?: "build" | "pivot" | "kill" | "neutral"
-}) {
-  const text =
-    tone === "build"
-      ? "text-verdict-build"
-      : tone === "kill"
-        ? "text-verdict-kill"
-        : tone === "pivot"
-          ? "text-verdict-pivot"
-          : "text-bone-0"
-  return (
-    <div className="bg-bone-0/[0.025] px-6 py-6 md:p-8">
-      <div className="mono-caption">{label}</div>
-      <div className={`tabular mt-3 flex items-baseline font-sans text-[clamp(36px,4vw,52px)] font-medium leading-none tracking-[-0.03em] ${text}`}>
-        <span>{value}</span>
-        {sub && <span className="ml-1 font-serif text-[18px] italic text-bone-2">{sub}</span>}
-      </div>
-    </div>
-  )
-}
-
-function RecordRow({ r, index }: { r: DecisionRecord; index: number }) {
+function RecordRow({ r }: { r: DecisionRecord }) {
   const verdict = (r.verdict as Verdict) || "PIVOT"
   const tone =
     verdict === "BUILD" ? "text-verdict-build" : verdict === "KILL" ? "text-verdict-kill" : "text-verdict-pivot"
   const accent =
     verdict === "BUILD" ? "bg-verdict-build" : verdict === "KILL" ? "bg-verdict-kill" : "bg-verdict-pivot"
-  const cursor = verdict === "BUILD" ? "approves" : verdict === "KILL" ? "denies" : "pivots"
   const date = recordDateLabel(r)
   const score = r.opportunityScore != null ? Math.round(r.opportunityScore) : null
 
   return (
-    <motion.li
-      initial={{ opacity: 0, y: 6 }}
-      whileInView={{ opacity: 1, y: 0 }}
-      viewport={{ once: true }}
-      transition={{ duration: 0.4, delay: 0.03 * index, ease: ease.editorial }}
-      data-cursor={cursor}
+    <li
       className="group relative border-b border-bone-0/[0.08] last:border-b-0"
     >
       <div className={`absolute left-0 top-0 h-full w-px ${accent} opacity-0 transition-opacity duration-200 group-hover:opacity-100`} aria-hidden />
-      <div className="grid grid-cols-[1fr_64px] items-baseline gap-4 px-4 py-5 transition-colors group-hover:bg-bone-0/[0.02] md:grid-cols-[100px_120px_1fr_120px_64px] md:gap-6 md:px-6 md:py-6">
+      <div className="grid grid-cols-[1fr_64px] items-baseline gap-4 px-4 py-5 transition-colors group-hover:bg-bone-0/[0.02] md:grid-cols-[100px_100px_1fr_100px_40px] md:gap-5 md:px-5 md:py-5">
         <span className="mono-caption tabular text-bone-2 hidden md:inline">{date}</span>
         <span className={`mono-caption tabular hidden md:inline ${tone}`}>{verdict}</span>
         <div>
@@ -646,28 +361,18 @@ function RecordRow({ r, index }: { r: DecisionRecord; index: number }) {
           <span className="mono-caption text-bone-2 transition-all group-hover:translate-x-1 group-hover:text-bone-0">→</span>
         </span>
       </div>
-      {r.summary && r.summary !== r.ideaTitle && (
-        <p className="hidden ml-[124px] max-w-[640px] pb-5 pl-6 text-[14px] leading-snug text-bone-1 md:block">
-          {r.summary}
-        </p>
-      )}
-    </motion.li>
+    </li>
   )
 }
 
 function EmptyLedger() {
-  const d = microcopy.dashboard
   return (
-    <div className="grid gap-8 bg-gradient-to-br from-bone-0/[0.04] to-transparent p-8 md:grid-cols-[1fr_auto] md:items-center md:p-12">
-      <div className="max-w-[520px]">
-        <p className="mono-caption mb-3">{d.emptyLedgerEyebrow}</p>
-        <p className="font-serif text-[clamp(22px,2.6vw,32px)] leading-snug tracking-[-0.02em]">
-          {microcopy.empty.decisions}
-        </p>
-        <p className="mt-4 text-[14px] leading-snug text-bone-1">{d.emptyLedgerAside}</p>
-      </div>
-      <Link href="/dashboard/validate" className="tab-cta" data-cursor="file">
-        <span>Open your first memo</span>
+    <div className="py-16 text-center md:py-20">
+      <p className="font-serif text-[clamp(20px,2.4vw,28px)] italic text-bone-1">
+        {microcopy.empty.decisions}
+      </p>
+      <Link href="/dashboard/validate" className="tab-cta mt-8 inline-flex" data-cursor="file">
+        <span>Begin</span>
         <span className="tab-cta-arrow">→</span>
       </Link>
     </div>
@@ -677,6 +382,12 @@ function EmptyLedger() {
 /* -------------------------------------------------------------------------- */
 /*  Helpers                                                                   */
 /* -------------------------------------------------------------------------- */
+
+function autosize(el: HTMLTextAreaElement | null) {
+  if (!el) return
+  el.style.height = "auto"
+  el.style.height = `${Math.min(el.scrollHeight, 240)}px`
+}
 
 function readFingerprint(): string | null {
   if (typeof window === "undefined") return null
@@ -692,21 +403,18 @@ function readFingerprint(): string | null {
   }
 }
 
-function nameFor(user: { name?: string | null; email?: string | null; user_metadata?: { full_name?: string | null } } | null) {
-  if (!user) return "founder"
-  return (
-    user.name ||
-    user.user_metadata?.full_name ||
-    (user.email ? user.email.split("@")[0] : null) ||
-    "founder"
-  )
-}
+function getContextLine(memoCount: number, lastRecord?: DecisionRecord | null): string {
+  if (memoCount === 0) return "Nothing on file yet. Start when the idea won\u2019t leave."
 
-function greetingFor(_user: unknown) {
-  const h = new Date().getHours()
-  if (h < 5) return "Up late"
-  if (h < 12) return "Good morning"
-  if (h < 17) return "Good afternoon"
-  if (h < 22) return "Good evening"
-  return "Working late"
+  // Check how long since last memo
+  if (lastRecord) {
+    const ms = recordTimeMs(lastRecord)
+    if (ms > 0) {
+      const daysSince = Math.floor((Date.now() - ms) / (1000 * 60 * 60 * 24))
+      if (daysSince > 7) return "Been a while. The archive hasn\u2019t moved \u2014 maybe you have."
+    }
+  }
+
+  if (memoCount === 1) return "One memo on record. The second one is always sharper."
+  return `${memoCount} memos on file. Open the latest, or start fresh.`
 }

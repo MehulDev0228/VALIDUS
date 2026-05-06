@@ -55,7 +55,7 @@ function AuthPageContent() {
     const email = String(data.get("email") || "")
     const password = String(data.get("password") || "")
     if (!email || !password) {
-      setError("Provide both fields. The system does not infer.")
+      setError("Email and password to continue.")
       setSubmitting(false)
       return
     }
@@ -78,7 +78,7 @@ function AuthPageContent() {
     const password = String(data.get("password") || "")
     const fullName = String(data.get("fullName") || "")
     if (!email || !password || !fullName) {
-      setError("All three fields. No optional substance.")
+      setError("Name, email, and password to continue.")
       setSubmitting(false)
       return
     }
@@ -132,20 +132,19 @@ function AuthPageContent() {
           transition={{ duration: 0.6, ease: ease.editorial }}
           className="md:col-span-5"
         >
-          <p className="mono-caption">Identity intake</p>
-          <h1 className="mt-6 font-serif text-[clamp(36px,4.5vw,56px)] leading-[1.05] tracking-[-0.025em]">
-            {tab === "in" ? "Return to the ledger." : "Open the ledger."}
+          <h1 className="font-serif text-[clamp(36px,4.5vw,56px)] leading-[1.05] tracking-[-0.025em]">
+            {tab === "in" ? "Welcome back." : "Begin here."}
           </h1>
           <p className="mt-6 max-w-[420px] text-[16px] leading-[1.6] text-bone-1">
             {tab === "in"
-              ? "Sign in to continue. Your past memos, attempts, and verdicts are waiting."
-              : "Sixty seconds. No card. The first memo files immediately and the ledger keeps everything from then on."}
+              ? "Sign in to continue. Your memos and reflections are waiting."
+              : "Sixty seconds. No card. Your first memo files immediately."}
           </p>
           <ul className="mt-8 space-y-3 text-[14px] leading-snug text-bone-1">
             {[
-              "Two memos per day. Strict. The judges sleep.",
-              "Seven specialist agents and a Final Judge. Verdict in under a minute.",
-              "Your ledger of decisions, attempts, and learnings — on file forever.",
+              "Two memos per day. Deliberately paced.",
+              "Seven specialist reads and a single decision frame.",
+              "Your private archive of decisions and learnings.",
             ].map((point) => (
               <li key={point} className="flex gap-3">
                 <span className="select-none text-bone-2">—</span>

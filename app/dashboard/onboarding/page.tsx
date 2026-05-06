@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useState } from "react"
+import { Suspense, useEffect, useState } from "react"
 import Link from "next/link"
 import { useRouter, useSearchParams } from "next/navigation"
 import { motion } from "framer-motion"
@@ -82,6 +82,14 @@ const FIELDS: Array<{
 ]
 
 export default function FounderOnboardingPage() {
+  return (
+    <Suspense fallback={<div className="min-h-screen bg-ink-0 text-bone-0" />}>
+      <OnboardingContent />
+    </Suspense>
+  )
+}
+
+function OnboardingContent() {
   const { user, loading } = useAuth()
   const router = useRouter()
   const search = useSearchParams()
