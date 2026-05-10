@@ -56,6 +56,16 @@ import {
   diversifyExecutionLexicon,
   diversifyMemoLanguage,
 } from "@/lib/intelligence/language-diversity"
+import { classifyIndustryFromIdea } from "@/lib/intelligence/industry-classification"
+import { formatDomainPackForPrompt } from "@/lib/intelligence/domain-packs"
+import { asymmetryInstructionForIndustry, domainLanguageContract } from "@/lib/intelligence/domain-vocabulary"
+import { filterInevitabilitySignalsForIndustry } from "@/lib/intelligence/domain-signal-filter"
+import { attachCognitionAudit, sanitizeFreeValidationLanguage } from "@/lib/intelligence/wrongness-detection"
+import {
+  extractBusinessDNA,
+  extractBusinessDNAHeuristic,
+  formatBusinessDNAForPrompt,
+} from "@/lib/intelligence/business-dna"
 
 type AgentLean = "BUILD" | "PIVOT" | "KILL"
 type IdeaContextLite = ReturnType<typeof heuristicContext>
@@ -417,7 +427,9 @@ function heuristicRiskEvidenceForLens(lens: ArchetypeLens): {
 
 /** Fast path when Gemini is unavailable — matches pipeline structure (pattern graph, asymmetry, pain, structural). */
 export function heuristicReport(idea: IdeaInput, kgCandidates: KGItem[]): FreeValidationResponse {
-  const patternGraph = buildPatternGraph(idea)
+  const industryClassification = classifyIndustryFromIdea(idea)
+  const businessDNA = extractBusinessDNAHeuristic(idea, industryClassification)
+  const patternGraph = buildPatternGraph(idea, industryClassification)
   const kgFiltered = filterPlausibleKgItems(idea, kgCandidates.length ? kgCandidates : queryKnowledgeGraph(idea, 14))
   const comparablesPayload = buildMechanismAwareComparables(kgFiltered, patternGraph.historicalMatches)
   const kgLabelList = kgFiltered.map((k) => k.name)
@@ -425,7 +437,11 @@ export function heuristicReport(idea: IdeaInput, kgCandidates: KGItem[]): FreeVa
   const lens = getArchetypeLens(archetype)
   const seed = hashSeed(`${idea.title}|${archetype}`)
   const founderModes = resolveFounderModes(patternGraph.pattern, patternGraph.historicalMatches[0]?.id ?? null)
-  const inevitSignals = deriveInevitabilitySignals(idea, patternGraph.pattern, patternGraph.historicalMatches)
+  const inevitSignals = filterInevitabilitySignalsForIndustry(
+    deriveInevitabilitySignals(idea, patternGraph.pattern, patternGraph.historicalMatches),
+    `${idea.title} ${idea.description}`,
+    industryClassification,
+  )
   const painSignalsHeuristic = derivePainGravitySignals(idea, patternGraph.pattern)
   const structuralViabilityHeuristic = deriveStructuralViability(
     idea,
@@ -559,7 +575,7 @@ export function heuristicReport(idea: IdeaInput, kgCandidates: KGItem[]): FreeVa
 
   const heuristicRiskInsights = heuristicRiskEvidenceForLens(lens)
 
-  return {
+  let heuristicOut: FreeValidationResponse = {
     ideaSummary: `${idea.title}: ${idea.description.slice(0, 180)}`,
     ideaContext: context,
     researchInsights: [
@@ -641,8 +657,23 @@ export function heuristicReport(idea: IdeaInput, kgCandidates: KGItem[]): FreeVa
       generatedAt: new Date().toISOString(),
       needsReview: false,
       needsReviewReason: null,
+      enginePath: "heuristic_fallback",
+      businessDNA,
     },
   }
+
+  heuristicOut = sanitizeFreeValidationLanguage(heuristicOut, industryClassification)
+  heuristicOut = attachCognitionAudit(heuristicOut, industryClassification)
+  heuristicOut = {
+    ...heuristicOut,
+    metadata: {
+      ...heuristicOut.metadata,
+      industryClassification,
+      enginePath: "heuristic_fallback",
+      businessDNA,
+    },
+  }
+  return FreeValidationResponseSchema.parse(heuristicOut)
 }
 
 function agentPrompt(opts: {
@@ -659,6 +690,7 @@ function agentPrompt(opts: {
   founderAsymmetryBrief: string
   painGravityBrief: string
   structuralBrief: string
+  domainRoutingBlock: string
 }): string {
   const {
     role,
@@ -674,6 +706,7 @@ function agentPrompt(opts: {
     founderAsymmetryBrief,
     painGravityBrief,
     structuralBrief,
+    domainRoutingBlock,
   } = opts
 
   const styleByRole: Record<string, string> = {
@@ -697,7 +730,9 @@ function agentPrompt(opts: {
     lens.agentTension[role] ||
     "Lead with vocabulary only your function would use — not recycled founder clichés."
 
-  return `You are ${role}, one specialist seat on a FutureValidate adversarial council.
+  return `${domainRoutingBlock}
+
+You are ${role}, one specialist seat on a VERDIKT adversarial council.
 Council members contradict by default; unanimous cheerleading fails the exercise.
 
 Return strict JSON ONLY:
@@ -754,8 +789,17 @@ ContradictionHints: ${JSON.stringify(contradictionHints)}`
 }
 
 export async function runFreeValidationPipeline(idea: IdeaInput): Promise<FreeValidationResponse> {
+  const industryClassification = classifyIndustryFromIdea(idea)
+  const businessDNA = await extractBusinessDNA(idea, industryClassification)
+  const domainRoutingBlock = [
+    `INDUSTRY_CLASSIFICATION primary=${industryClassification.primaryVertical} secondary=${industryClassification.secondaryVertical ?? "none"} confidence=${industryClassification.confidence01.toFixed(2)} businessModel=${industryClassification.businessModel} operationalStructure=${industryClassification.operationalStructure} complexity=${industryClassification.complexityType} buyer=${industryClassification.buyerType} deployment=${industryClassification.deploymentModel}`,
+    formatBusinessDNAForPrompt(businessDNA),
+    formatDomainPackForPrompt(industryClassification.primaryVertical),
+    domainLanguageContract(industryClassification),
+  ].join("\n\n")
+
   const kgCandidates = queryKnowledgeGraph(idea, 14)
-  const patternGraph = buildPatternGraph(idea)
+  const patternGraph = buildPatternGraph(idea, industryClassification)
   const kgFiltered = filterPlausibleKgItems(idea, kgCandidates)
   const comparablesPayload = buildMechanismAwareComparables(kgFiltered, patternGraph.historicalMatches)
   const kgNamesForPrompts = kgFiltered.slice(0, 6).map((k) => k.name)
@@ -763,7 +807,11 @@ export async function runFreeValidationPipeline(idea: IdeaInput): Promise<FreeVa
   const founderAgentBrief = founderModesAgentBrief(founderModes)
   const founderJudgeBrief = founderModesJudgeBrief(founderModes, patternGraph.pattern)
   const founderExecGrain = founderModeExecutionGrain(founderModes)
-  const inevitSignals = deriveInevitabilitySignals(idea, patternGraph.pattern, patternGraph.historicalMatches)
+  const inevitSignals = filterInevitabilitySignalsForIndustry(
+    deriveInevitabilitySignals(idea, patternGraph.pattern, patternGraph.historicalMatches),
+    `${idea.title} ${idea.description}`,
+    industryClassification,
+  )
   const painSignals = derivePainGravitySignals(idea, patternGraph.pattern)
   const structuralViability = deriveStructuralViability(idea, patternGraph.pattern, painSignals)
   const structuralAgentBrief = structuralViabilityAgentBrief(structuralViability)
@@ -800,13 +848,15 @@ export async function runFreeValidationPipeline(idea: IdeaInput): Promise<FreeVa
     const reasonPool = reasonReplacementPool(lens)
 
     const contextRaw = await generateGeminiJson(
-      `Extract IdeaContext JSON with keys:
+      `${domainRoutingBlock}
+
+Extract IdeaContext JSON with keys:
 {"problem","targetUser","market","coreIdea","keywords","searchQueries","missingAssumptions","validationGaps"}.
 
 STARTUP_ARCHETYPE_HINT: ${lens.label} (${archetypeKey})
 ARCHETYPE_FOCUS: ${lens.researchMandate}
 
-Tailor missingAssumptions + validationGaps to that archetype's native failure modes rather than generic SaaS templates.
+Tailor missingAssumptions + validationGaps to DOMAIN_NATIVE failure modes from INDUSTRY_CLASSIFICATION — never generic SaaS templates unless domain is horizontal SaaS.
 
 STARTUP_PATTERN_GRAPH:
 ${patternGraph.mechanismBrief}
@@ -819,7 +869,7 @@ ${founderAgentBrief.slice(0, 1800)}
 FOUNDER_ASYMMETRY_ENGINE (counterweight committee risk — irrational-today ↔ obvious-later; not hype):
 ${founderAsymmetryAgentBlock.slice(0, 1900)}
 
-ASYMMETRY / INEVITABILITY (cite at least one latent ritual, compounding hop, or embarrassment cost):
+${asymmetryInstructionForIndustry(industryClassification)}
 ${asymmetryAgentBlock.slice(0, 2000)}
 
 PAIN_GRAVITY — distinguish intellectual excitement from recurring operational pain:
@@ -836,7 +886,9 @@ Input: ${JSON.stringify(idea)}`,
     const country = inferCountry(idea)
 
     const researchRaw = await generateGeminiJson(
-      `FutureValidate Nexus Orchestrator — consulting-grade, archetype-native research.
+      `${domainRoutingBlock}
+
+VERDIKT Nexus Orchestrator — consulting-grade, archetype-native research.
 Never output vacuous lines like "market noise exists" or "evidence quality is weak without signals".
 
 TITLE_VIVID_RULES:
@@ -882,7 +934,7 @@ STRUCTURAL_VIABILITY_LAYER:
 ${structuralAgentBrief.slice(0, 900)}
 
 Rules:
-- Each insight must cite ${country} AND at least one archetype primitive (liquidity, trust, density, adoption loop, SIEM path, fraud, rake, etc.).
+- Each insight must cite ${country} AND at least one primitive that is believable for INDUSTRY_CLASSIFICATION (use DOMAIN_PACK vocabulary — not interchangeable marketplace tropes unless domain is marketplaces).
 - Ban hollow macro praise; every field must contain a falsifiable claim hook.
 - contradictionsToProbe must juxtapose optimistic vs catastrophic readings grounded in this archetype — include at least ONE pair framed as "manual behavior already exists vs still fantasy".
 
@@ -925,6 +977,7 @@ If empirical data is scarce, produce high-fidelity simulated hypotheses and labe
       founderAsymmetryBrief: founderAsymmetryAgentBlock,
       painGravityBrief: painGravityAgentBlock,
       structuralBrief: structuralAgentBrief,
+      domainRoutingBlock,
     }
 
     const wave1Outputs = await Promise.all(
@@ -986,7 +1039,9 @@ If empirical data is scarce, produce high-fidelity simulated hypotheses and labe
         : `VERDICT_SPREAD_OK (${spreadCount}) — reconcile tension without collapsing into generic skepticism.`
 
     const judgeRaw = await generateGeminiJson(
-      `FinalJudgeAgent — resolve hostile FutureValidate specialists + Nexus insights.
+      `${domainRoutingBlock}
+
+FinalJudgeAgent — resolve hostile VERDIKT specialists + Nexus insights.
 
 Return strict JSON ONLY:
 {"decision":"BUILD|PIVOT|KILL","brutalSummary":string,"ifWorksBecause":string,"ifFailsBecause":string,"confidence":number,"topReasons":string[],"topRisks":string[],"opportunityScore":number,"whyFail":string[],"proveWrong48h":string[],"executionPlan":string[],"executionPlanner48h":[{"order":1,"day":string,"action":string,"platforms":string[],"expectedSignals":string,"successIf":string,"failIf":string}]}
@@ -1035,7 +1090,7 @@ JUDGE_FOUNDER_ASYMMETRY:
 
 Style:
 - brutalSummary ≤ 26 words and must differ in RHYTHM from other ideas (no shared clause across categories).
-- ifWorksBecause + ifFailsBecause = one sentence each, archetype-grounded verbs (liquidity, trust, SSO, subsidy, capex tail, rake, moderation cost, density, etc.).
+- ifWorksBecause + ifFailsBecause = one sentence each, grounded in INDUSTRY_CLASSIFICATION + DOMAIN_PACK (use native vocabulary — ban liquidity/rake/invite talk unless domain is marketplaces or explicitly two-sided).
 - topReasons (≤3 quotes, ≤18 words) must cite different mechanisms — never duplicate topRisks phrasing verbatim.
 - topRisks (≤5 bullets) enumerate DISTINCT failure pathways.
 - forbid maybe/might/could/possible/potentially.
@@ -1183,7 +1238,7 @@ IdeaContext=${JSON.stringify(ideaContext)}`,
         ),
     })
 
-    const response: FreeValidationResponse = {
+    let response: FreeValidationResponse = {
       ideaSummary: `${idea.title}: ${idea.description.slice(0, 180)}`,
       ideaContext,
       researchInsights: researchInsights.slice(0, 6),
@@ -1223,6 +1278,19 @@ IdeaContext=${JSON.stringify(ideaContext)}`,
         generatedAt: new Date().toISOString(),
         needsReview: false,
         needsReviewReason: null,
+        enginePath: "gemini_pipeline",
+        businessDNA,
+      },
+    }
+    response = sanitizeFreeValidationLanguage(response, industryClassification)
+    response = attachCognitionAudit(response, industryClassification)
+    response = {
+      ...response,
+      metadata: {
+        ...response.metadata,
+        industryClassification,
+        enginePath: "gemini_pipeline",
+        businessDNA,
       },
     }
     return FreeValidationResponseSchema.parse(response)

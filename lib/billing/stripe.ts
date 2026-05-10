@@ -23,20 +23,32 @@ export interface CreateCheckoutParams {
   userId: string
   userEmail?: string | null
   mode: "oneoff" | "subscription"
+  /** Subscription tier — selects Stripe price id env (defaults to Pro). */
+  tier?: "pro" | "team"
 }
 
 export async function createPremiumValidationCheckoutSession(params: CreateCheckoutParams) {
   assertStripeConfigured()
 
   const baseUrl = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000"
-  const priceId =
-    params.mode === "subscription"
-      ? process.env.STRIPE_PRICE_ID_SUBSCRIPTION
-      : process.env.STRIPE_PRICE_ID_ONEOFF
+
+  let priceId: string | undefined
+  if (params.mode === "subscription") {
+    priceId =
+      params.tier === "team"
+        ? process.env.STRIPE_PRICE_ID_TEAM || process.env.STRIPE_PRICE_ID_SUBSCRIPTION
+        : process.env.STRIPE_PRICE_ID_SUBSCRIPTION
+  } else {
+    priceId = process.env.STRIPE_PRICE_ID_ONEOFF
+  }
 
   if (!priceId) {
-    throw new Error("Missing STRIPE_PRICE_ID_ONEOFF or STRIPE_PRICE_ID_SUBSCRIPTION for checkout session.")
+    throw new Error(
+      "Missing Stripe price id — set STRIPE_PRICE_ID_SUBSCRIPTION (and optionally STRIPE_PRICE_ID_TEAM) or STRIPE_PRICE_ID_ONEOFF.",
+    )
   }
+
+  const billingTier = params.mode === "subscription" ? (params.tier ?? "pro") : "oneoff"
 
   const session = await stripe!.checkout.sessions.create({
     mode: params.mode === "subscription" ? "subscription" : "payment",
@@ -47,12 +59,13 @@ export async function createPremiumValidationCheckoutSession(params: CreateCheck
       },
     ],
     success_url: `${baseUrl}/dashboard?session_id={CHECKOUT_SESSION_ID}`,
-    cancel_url: `${baseUrl}/dashboard/billing?canceled=1`,
+    cancel_url: `${baseUrl}/dashboard/settings?canceled=1`,
     customer_email: params.userEmail || undefined,
     metadata: {
       userId: params.userId,
       useMode: "server-proxy",
       billingMode: params.mode,
+      billingTier,
     },
   })
 

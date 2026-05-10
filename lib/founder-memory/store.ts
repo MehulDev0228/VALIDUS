@@ -5,6 +5,7 @@
 
 import { mkdir, readFile, writeFile } from "node:fs/promises"
 import { dirname, join } from "node:path"
+import { getSupabaseAdmin } from "@/lib/supabase-admin"
 import type {
   FounderMemoryStoreV1,
   FounderOnboardingInput,
@@ -38,7 +39,28 @@ function newId(prefix: string): string {
   return `${prefix}_${Date.now()}_${Math.random().toString(36).slice(2, 9)}`
 }
 
+async function readFounderStoreFromSupabase(userId: string): Promise<FounderMemoryStoreV1 | null> {
+  const admin = getSupabaseAdmin()
+  if (!admin) return null
+  const { data, error } = await admin
+    .from("founder_memory_bundles")
+    .select("bundle")
+    .eq("user_id", userId)
+    .maybeSingle()
+  if (error || !data?.bundle) return null
+  const bundle = data.bundle as FounderMemoryStoreV1
+  if (!bundle || bundle.version !== 1 || !Array.isArray(bundle.timeline)) return null
+  return {
+    ...bundle,
+    ownerId: safeFounderFilename(userId),
+    timeline: [...bundle.timeline].sort((a, b) => Date.parse(b.at) - Date.parse(a.at)),
+  }
+}
+
 export async function readFounderStore(userId: string): Promise<FounderMemoryStoreV1> {
+  const fromDb = await readFounderStoreFromSupabase(userId)
+  if (fromDb) return fromDb
+
   const path = getFounderMemoryFilePath(userId)
   try {
     const raw = await readFile(path, "utf8")
@@ -66,14 +88,29 @@ function emptyStore(userId: string): FounderMemoryStoreV1 {
 }
 
 async function persistStore(originalUserId: string, store: FounderMemoryStoreV1): Promise<boolean> {
+  let ok = false
+  const admin = getSupabaseAdmin()
+  if (admin) {
+    const { error } = await admin.from("founder_memory_bundles").upsert(
+      {
+        user_id: originalUserId,
+        bundle: store as unknown as Record<string, unknown>,
+        updated_at: new Date().toISOString(),
+      },
+      { onConflict: "user_id" },
+    )
+    ok = !error
+    if (error) console.warn("[founder-memory] Supabase upsert failed:", error)
+  }
+
   try {
     const path = getFounderMemoryFilePath(originalUserId)
     await mkdir(dirname(path), { recursive: true })
     await writeFile(path, JSON.stringify(store, null, 2), "utf8")
     return true
   } catch (e) {
-    console.warn("[founder-memory] write failed:", e)
-    return false
+    console.warn("[founder-memory] filesystem write failed:", e)
+    return ok
   }
 }
 

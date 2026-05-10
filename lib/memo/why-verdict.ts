@@ -108,7 +108,7 @@ export function buildWhyVerdictLines(free: Record<string, unknown>, verdict: Ver
             ? "Several agents found supportive angles — the judge still required execution and necessity proof before BUILD."
             : "Contrasting reads canceled out; this frame leaned on necessity, distribution, and risk tails—not fake consensus.",
         "medium",
-        "Medium — stance counts are real, but judges still compress nuance.",
+        "Medium — stance counts help, but the memo still compresses nuance.",
       ),
     )
   }

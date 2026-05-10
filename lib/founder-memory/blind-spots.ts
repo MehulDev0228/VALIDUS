@@ -97,7 +97,7 @@ export function inferBlindSpots(timeline: TimelineEvent[]): BlindSpotObservation
   if (repetitive >= 2) {
     out.push({
       id: "repetitive_memo_language",
-      text: "Repetitive flags on memos suggest briefs converge — diversify the failure mode you're asking judges to puncture.",
+      text: "Repetitive flags on memos suggest briefs converge — diversify what you're asking the analysis to puncture.",
       basis: "feedback_signal",
       confidence: "medium",
     })

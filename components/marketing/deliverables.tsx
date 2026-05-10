@@ -14,7 +14,7 @@ interface Deliverable {
 const DELIVERABLES: Deliverable[] = [
   {
     n: "01",
-    what: "Final verdict — BUILD, PIVOT, or KILL",
+    what: "Decision frame — BUILD, PIVOT, or KILL",
     detail: "One word. With confidence. With reasoning. No 'maybe.'",
     weight: "primary",
   },
@@ -32,13 +32,13 @@ const DELIVERABLES: Deliverable[] = [
   },
   {
     n: "04",
-    what: "Opportunity score (0–100)",
+    what: "Opportunity compression (0–100)",
     detail: "Composite of market, willingness-to-pay, defensibility, and feasibility.",
     weight: "secondary",
   },
   {
     n: "05",
-    what: "Seven agent panels",
+    what: "Seven honest angles",
     detail: "Each specialist's pass at your idea, with contradictions surfaced.",
     weight: "secondary",
   },
@@ -62,7 +62,7 @@ const DELIVERABLES: Deliverable[] = [
   },
   {
     n: "09",
-    what: "48-hour falsification plan",
+    what: "48-hour pressure horizon",
     detail: "Day-by-day actions, platforms, expected signals, success/fail criteria.",
     weight: "primary",
   },
@@ -76,16 +76,16 @@ export function Deliverables() {
     <section
       ref={ref}
       data-section="deliverables"
-      className="relative border-t border-bone-0/[0.06] py-24 md:py-32"
+      className="relative border-t border-bone-0/[0.04] py-24 md:py-32"
     >
       <div className="mx-auto max-w-[1200px] px-6 md:px-10">
         <div className="grid grid-cols-1 gap-12 md:grid-cols-12 md:gap-16">
           <div className="md:col-span-4">
-            <p className="mono-caption">06 — On delivery</p>
+            <p className="mono-caption text-ember/60">06 — On delivery</p>
             <h2 className="mt-6 font-serif text-[clamp(36px,5vw,68px)] leading-[1.02] tracking-[-0.03em]">
-              You file a brief.
+              You write a brief.
               <br />
-              <em className="font-serif italic text-bone-1">You receive a memo.</em>
+              <em className="font-serif italic text-bone-1">You receive a read.</em>
             </h2>
             <p className="mt-6 max-w-[360px] text-[15px] leading-[1.55] text-bone-1">
               Not a chat reply. Not a checklist. A consulting-grade document you can send to a co-founder, an investor, or yourself in six months.
@@ -96,16 +96,16 @@ export function Deliverables() {
           </div>
 
           <div className="md:col-span-8">
-            <ul className="border-t border-bone-0/[0.08]">
+            <ul className="border-t border-bone-0/[0.06]">
               {DELIVERABLES.map((d, i) => (
                 <motion.li
                   key={d.n}
                   initial={{ opacity: 0, y: 12 }}
                   animate={inView ? { opacity: 1, y: 0 } : {}}
                   transition={{ duration: 0.45, delay: 0.04 * i, ease: ease.editorial }}
-                  className="grid grid-cols-[36px_1fr] items-baseline gap-4 border-b border-bone-0/[0.08] py-5 md:grid-cols-[60px_minmax(0,1fr)_220px] md:gap-8"
+                  className="group relative grid grid-cols-[36px_1fr] items-baseline gap-4 border-b border-bone-0/[0.06] py-5 transition-colors hover:bg-bone-0/[0.02] md:grid-cols-[60px_minmax(0,1fr)_220px] md:gap-8"
                 >
-                  <span className="font-mono text-[11px] tabular tracking-[0.1em] text-bone-2">
+                  <span className="font-mono text-[11px] tabular tracking-[0.1em] text-ember/50 transition-colors group-hover:text-ember">
                     {d.n}
                   </span>
                   <div>

@@ -1,7 +1,7 @@
 import type { Metadata } from "next"
 
 export const metadata: Metadata = {
-  title: "Private alpha · FutureValidate",
+  title: "Private alpha · VERDIKT",
   description: "Request access to the founder operating environment for decisions on the record.",
 }
 

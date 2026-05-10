@@ -27,7 +27,7 @@ export function formatGeminiEnvWarning(): string {
   const st = getGeminiEnvStatus()
   if (st.ok) return ""
   return [
-    "[FutureValidate] Gemini is NOT configured.",
+    "[VERDIKT] Gemini is NOT configured.",
     `  Missing: ${st.missing}`,
     `  Resolved model (would be used): ${st.model}`,
     "  Add GEMINI_API_KEY to .env.local (see .env.example).",

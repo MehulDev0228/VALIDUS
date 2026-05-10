@@ -9,11 +9,10 @@ import { ease } from "@/lib/motion"
 import { microcopy } from "@/lib/microcopy"
 
 /**
- * DashboardNav — single hairline header that replaces the legacy sidebar.
+ * DashboardNav — warm, quiet header.
  *
- * Brand mark on the left, segmented section indicator in the centre, account
- * affordance + filing CTA on the right. Identical visual language to the
- * marketing nav so the dashboard does not feel like a different product.
+ * Ember presence dot, clean section indicator, account affordance.
+ * Same emotional language as marketing nav so the product feels continuous.
  */
 export function DashboardNav() {
   const pathname = usePathname()
@@ -43,17 +42,15 @@ export function DashboardNav() {
 
   return (
     <header
-      className={`sticky top-0 z-30 border-b transition-colors duration-300 ${
-        scrolled ? "border-bone-0/[0.06] bg-ink-0/85 backdrop-blur-xl" : "border-transparent bg-ink-0"
+      className={`sticky top-0 z-30 border-b transition-all duration-300 ${
+        scrolled ? "border-bone-0/[0.06] bg-ink-0/90 backdrop-blur-xl" : "border-transparent bg-ink-0"
       }`}
     >
       <div className="mx-auto flex h-16 max-w-[1440px] items-center justify-between px-6 md:px-10">
         <div className="flex items-center gap-8">
-          <Link href="/" className="flex items-center gap-3" data-cursor="cite">
-            <span className="h-2 w-2 bg-bone-0" />
-            <span className="mono-caption text-bone-0">
-              Future<span className="text-bone-1">/</span>Validate
-            </span>
+          <Link href="/" className="flex items-center gap-3">
+            <span className="h-2 w-2 shrink-0 rounded-full bg-ember breathe" />
+            <span className="mono-caption text-bone-0">{microcopy.brand.name}</span>
           </Link>
 
           <nav className="hidden items-center gap-1 md:flex">
@@ -61,7 +58,6 @@ export function DashboardNav() {
               <Link
                 key={l.href}
                 href={l.href}
-                data-cursor="read"
                 className={`relative px-3 py-2 mono-caption transition-colors duration-200 ${
                   isActive(l.href) ? "text-bone-0" : "text-bone-2 hover:text-bone-0"
                 }`}
@@ -71,7 +67,7 @@ export function DashboardNav() {
                   <motion.span
                     layoutId="dash-nav-active"
                     transition={{ duration: 0.32, ease: ease.editorial }}
-                    className="absolute inset-x-3 bottom-1 h-px bg-bone-0"
+                    className="absolute inset-x-3 bottom-1 h-px bg-ember/50"
                   />
                 )}
               </Link>
@@ -80,7 +76,7 @@ export function DashboardNav() {
         </div>
 
         <div className="flex items-center gap-4">
-          <Link href="/dashboard/validate" className="tab-cta hidden md:inline-flex" data-cursor="file">
+          <Link href="/dashboard/validate" className="tab-cta hidden md:inline-flex">
             <span>{dn.memo}</span>
             <span className="tab-cta-arrow">→</span>
           </Link>
@@ -90,10 +86,9 @@ export function DashboardNav() {
             onClick={() => setOpen((v) => !v)}
             aria-expanded={open}
             aria-label="Account"
-            className="flex items-center gap-3 border border-bone-0/[0.07] px-3 py-1.5 transition-colors hover:border-bone-0/25"
-            data-cursor="read"
+            className="flex items-center gap-3 rounded-sm border border-bone-0/[0.06] px-3 py-1.5 transition-colors hover:border-bone-0/15"
           >
-            <span className="grid h-6 w-6 place-items-center bg-bone-0 text-[11px] font-medium text-ink-0">
+            <span className="grid h-6 w-6 place-items-center rounded-full bg-ember/20 text-[11px] font-medium text-ember">
               {initials}
             </span>
             <span className="mono-caption tabular hidden md:inline">{user?.email?.split("@")[0] || "anon"}</span>
@@ -109,35 +104,42 @@ export function DashboardNav() {
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -6 }}
             transition={{ duration: 0.28, ease: ease.editorial }}
-            className="absolute right-6 top-[calc(100%+8px)] w-[280px] border border-bone-0/[0.07] bg-ink-1/95 p-5 backdrop-blur-sm md:right-10"
+            className="absolute right-6 top-[calc(100%+8px)] w-[280px] rounded-sm border border-bone-0/[0.06] bg-ink-1/95 p-5 backdrop-blur-md md:right-10"
           >
             <div className="mono-caption mb-4 tabular text-bone-2">{user?.email || "anonymous session"}</div>
-            <div className="space-y-1 border-y border-bone-0/[0.06] py-2">
+            <div className="space-y-1 border-y border-bone-0/[0.05] py-2">
               <Link
                 href="/dashboard"
                 onClick={() => setOpen(false)}
-                className="block px-2 py-2 text-[14px] text-bone-1 hover:text-bone-0"
+                className="block rounded-sm px-2 py-2 text-[14px] text-bone-1 transition-colors hover:bg-bone-0/[0.03] hover:text-bone-0"
               >
                 {dn.home}
               </Link>
               <Link
                 href="/dashboard/founder"
                 onClick={() => setOpen(false)}
-                className="block px-2 py-2 text-[14px] text-bone-1 hover:text-bone-0"
+                className="block rounded-sm px-2 py-2 text-[14px] text-bone-1 transition-colors hover:bg-bone-0/[0.03] hover:text-bone-0"
               >
                 {dn.workspace}
               </Link>
               <Link
                 href="/dashboard/validate"
                 onClick={() => setOpen(false)}
-                className="block px-2 py-2 text-[14px] text-bone-1 hover:text-bone-0"
+                className="block rounded-sm px-2 py-2 text-[14px] text-bone-1 transition-colors hover:bg-bone-0/[0.03] hover:text-bone-0"
               >
                 {dn.memo}
               </Link>
               <Link
+                href="/dashboard/settings"
+                onClick={() => setOpen(false)}
+                className="block rounded-sm px-2 py-2 text-[14px] text-bone-1 transition-colors hover:bg-bone-0/[0.03] hover:text-bone-0"
+              >
+                {dn.settings}
+              </Link>
+              <Link
                 href="/"
                 onClick={() => setOpen(false)}
-                className="block px-2 py-2 text-[14px] text-bone-1 hover:text-bone-0"
+                className="block rounded-sm px-2 py-2 text-[14px] text-bone-1 transition-colors hover:bg-bone-0/[0.03] hover:text-bone-0"
               >
                 {microcopy.dashboard.marketingSite}
               </Link>
@@ -151,9 +153,9 @@ export function DashboardNav() {
                 }
                 router.push("/")
               }}
-              className="mt-3 block w-full px-2 py-2 text-left text-[14px] text-verdict-kill hover:text-bone-0"
+              className="mt-3 block w-full rounded-sm px-2 py-2 text-left text-[14px] text-ash transition-colors hover:bg-bone-0/[0.03] hover:text-bone-0"
             >
-              {user ? "Sign out" : "Return to marketing"}
+              {user ? "Sign out" : "Return home"}
             </button>
           </motion.div>
         )}

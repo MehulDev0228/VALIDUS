@@ -16,14 +16,6 @@ const SAMPLE_PROMPTS = [
   "A vertical SaaS for boutique law firms",
 ]
 
-/**
- * Heuristic verdict.
- *
- * This is intentionally lightweight — it exists to let visitors taste the
- * tone of the system, then escalate them to a real memo. We deliberately
- * lean toward critical verdicts: the brand is "brutally honest," and a
- * teaser that hands out BUILD verdicts cheaply would corrode trust.
- */
 function judgeIdea(input: string): { verdict: Verdict; brutalLine: string; oneSignal: string } {
   const t = input.toLowerCase().trim()
 
@@ -31,18 +23,15 @@ function judgeIdea(input: string): { verdict: Verdict; brutalLine: string; oneSi
   let pivotScore = 0
   let killScore = 0
 
-  // Build signals — narrow, professional, tooling
   if (/(tool|cli|api|sdk|dashboard|integration|workflow|compliance|finops|secops|devops|infra|automation)/i.test(t)) buildScore += 2
   if (/(for (engineers|accountants|lawyers|compliance|founders|recruiters|sales|operators|finance|ops))/i.test(t)) buildScore += 2
   if (/(b2b|saas|enterprise|vertical)/i.test(t)) buildScore += 1
   if (/(catches|prevents|detects|reduces|cuts)/i.test(t)) buildScore += 1
 
-  // Pivot signals — broad platform, marketplace
   if (/(marketplace|platform|community|app for everyone|social)/i.test(t)) pivotScore += 2
   if (/(uber for|airbnb for|tinder for|notion for)/i.test(t)) pivotScore += 2
   if (/(everyone|anyone|consumers|general public)/i.test(t)) pivotScore += 1
 
-  // Kill signals — saturated, hype, vague
   if (/(blockchain|nft|web3|crypto|metaverse)/i.test(t)) killScore += 3
   if (/(dating|social network|tiktok|youtube|email client)/i.test(t)) killScore += 2
   if (/(ai (writer|chatbot|assistant)( for)? general)/i.test(t)) killScore += 2
@@ -92,7 +81,6 @@ export function InlineTry() {
   const [samplePrompt, setSamplePrompt] = useState(SAMPLE_PROMPTS[0])
   const taRef = useRef<HTMLTextAreaElement | null>(null)
 
-  // Rotate placeholder for liveness
   useEffect(() => {
     let i = 0
     const id = setInterval(() => {
@@ -112,7 +100,6 @@ export function InlineTry() {
     if (!input.trim() || input.trim().length < 8) return
     setPhase("thinking")
     setResult(null)
-    // Theatrical delay — feel the agents conferring
     setTimeout(() => {
       setResult(judgeIdea(input))
       setPhase("ruled")
@@ -141,45 +128,45 @@ export function InlineTry() {
   return (
     <section
       data-section="try"
-      className="relative border-y border-bone-0/[0.06] py-24 md:py-32"
+      className="relative border-y border-bone-0/[0.04] py-24 md:py-32"
     >
       <div className="mx-auto max-w-[1200px] px-6 md:px-10">
         <div className="grid grid-cols-1 gap-12 md:grid-cols-12 md:gap-16">
           <div className="md:col-span-4">
-            <p className="mono-caption">02 — Inline draft</p>
+            <p className="mono-caption text-ember/60">02 — Quick test</p>
             <h2 className="mt-6 font-serif text-[clamp(32px,4vw,52px)] leading-[1.05] tracking-[-0.025em]">
-              Try a sentence. <em className="font-serif italic text-bone-1">See the tone.</em>
+              Try a sentence. <em className="font-serif italic text-bone-1">Feel the tone.</em>
             </h2>
-            <p className="mt-6 max-w-[360px] text-[15px] leading-[1.55] text-bone-1">
-              Type a one-line idea. The system stamps a teaser verdict so you can taste the voice. Then file a real memo and seven agents argue it on the record.
+            <p className="mt-6 max-w-[360px] text-[15px] leading-[1.6] text-bone-1">
+              Type a one-line idea. The system returns a teaser so you can taste the voice.
+              Then write a real brief and seven angles argue it on the record.
             </p>
             <p className="mono-caption mt-6 text-bone-2">
-              No card. No sign-up to taste. Sign-up only when you file a real one.
+              No card. No sign-up to taste. Sign up only when you write a real one.
             </p>
           </div>
 
           <div className="md:col-span-8">
             <div
-              data-cursor={phase === "ruled" ? "verdict" : "input"}
-              className="relative border border-bone-0/[0.08] bg-ink-1/40 p-6 md:p-10"
+              className="relative warm-surface rounded-sm p-6 md:p-10"
             >
-              <div className="absolute left-0 top-0 h-full w-px bg-gradient-to-b from-bone-0/30 via-bone-0/10 to-transparent" />
+              {/* Warm left accent */}
+              <div className="absolute left-0 top-0 h-full w-px bg-gradient-to-b from-ember/20 via-ember/8 to-transparent" />
 
               {/* Header strip */}
-              <div className="flex items-center justify-between gap-4 border-b border-bone-0/[0.06] pb-4">
+              <div className="flex items-center justify-between gap-4 border-b border-bone-0/[0.05] pb-4">
                 <div className="flex items-center gap-3">
                   <span className="relative flex h-2 w-2">
-                    <span className="absolute inline-flex h-full w-full animate-ping bg-bone-0 opacity-75" />
-                    <span className="relative inline-flex h-2 w-2 bg-bone-0" />
+                    <span className="absolute inline-flex h-full w-full rounded-full bg-ember breathe" />
                   </span>
                   <span className="mono-caption tabular text-bone-1">
-                    {phase === "idle" && "INTAKE OPEN"}
-                    {phase === "thinking" && "AGENTS CONFERRING…"}
-                    {phase === "ruled" && "VERDICT FILED"}
+                    {phase === "idle" && "Ready"}
+                    {phase === "thinking" && "Thinking…"}
+                    {phase === "ruled" && "Done"}
                   </span>
                 </div>
                 <span className="mono-caption tabular text-bone-2 hidden sm:inline">
-                  TEASER · NOT FOR THE LEDGER
+                  teaser · not saved to your archive
                 </span>
               </div>
 
@@ -209,12 +196,12 @@ export function InlineTry() {
                         }
                       }}
                       placeholder={samplePrompt}
-                      className="mt-3 w-full resize-none border-0 border-b border-bone-0/15 bg-transparent pb-4 font-serif text-[clamp(22px,2.6vw,34px)] leading-[1.2] tracking-[-0.015em] text-bone-0 placeholder:text-bone-2/70 focus:border-bone-0 focus:outline-none"
+                      className="mt-3 w-full resize-none border-0 border-b border-bone-0/10 bg-transparent pb-4 font-serif text-[clamp(22px,2.6vw,34px)] leading-[1.2] tracking-[-0.015em] text-bone-0 placeholder:text-bone-2/50 focus:border-ember/30 focus:outline-none"
                     />
 
                     <div className="mt-6 flex flex-wrap items-center justify-between gap-4">
                       <span className="mono-caption tabular text-bone-2">
-                        {input.length > 0 ? `${input.length} chars` : "0 chars"} · ⌘⏎ to file
+                        {input.length > 0 ? `${input.length} chars` : "0 chars"} · ⌘⏎ to test
                       </span>
                       <button
                         type="button"
@@ -222,7 +209,7 @@ export function InlineTry() {
                         disabled={input.trim().length < 8 || phase === "thinking"}
                         className={`tab-cta ${input.trim().length < 8 || phase === "thinking" ? "pointer-events-none opacity-40" : ""}`}
                       >
-                        <span>{phase === "thinking" ? "Filing teaser…" : "Tease the verdict"}</span>
+                        <span>{phase === "thinking" ? "Thinking…" : "Test the tone"}</span>
                         <span className="tab-cta-arrow">→</span>
                       </button>
                     </div>
@@ -238,12 +225,13 @@ export function InlineTry() {
                     className="pt-6"
                   >
                     <div className="flex items-center gap-3">
-                      <span className={`h-3 w-3 ${verdictBg[result.verdict]}`} />
+                      <span className={`h-3 w-3 rounded-full ${verdictBg[result.verdict]}`} />
                       <span className="mono-caption tabular text-bone-2">
-                        TEASER VERDICT · {new Date().toUTCString().slice(17, 25)} UTC
+                        Teaser · {new Date().toUTCString().slice(17, 25)} UTC
                       </span>
                     </div>
 
+                    {/* Verdict — still cinematic, still emotionally weighted */}
                     <div
                       className={`mt-4 font-serif text-[clamp(48px,9vw,120px)] leading-[0.95] tracking-[-0.04em] ${verdictColor[result.verdict]}`}
                     >
@@ -262,22 +250,22 @@ export function InlineTry() {
 
                     <div className="mt-6 grid grid-cols-1 gap-6 md:grid-cols-[180px_1fr]">
                       <div>
-                        <p className="mono-caption text-bone-2">SIGNAL</p>
+                        <p className="mono-caption text-bone-2">Signal</p>
                         <p className="mt-2 text-[15px] leading-snug text-bone-0">
                           {result.oneSignal}
                         </p>
                       </div>
-                      <div className="border-l-0 border-t border-bone-0/[0.06] pt-6 md:border-l md:border-t-0 md:pl-6 md:pt-0">
-                        <p className="mono-caption text-bone-2">FINAL JUDGE — TEASER LINE</p>
+                      <div className="ember-accent border-t border-bone-0/[0.05] pt-6 md:border-t-0 md:pt-0">
+                        <p className="mono-caption text-bone-2">One line from one angle</p>
                         <p className="mt-2 font-serif text-[18px] italic leading-[1.45] text-bone-0 md:text-[20px]">
                           "{result.brutalLine}"
                         </p>
                       </div>
                     </div>
 
-                    <div className="mt-8 flex flex-wrap items-center justify-between gap-4 border-t border-bone-0/[0.06] pt-6">
+                    <div className="mt-8 flex flex-wrap items-center justify-between gap-4 border-t border-bone-0/[0.05] pt-6">
                       <p className="max-w-[420px] text-[13px] leading-[1.5] text-bone-2">
-                        This is one line from one judge. The full memo runs <span className="text-bone-0">7 agents</span>, finds <span className="text-bone-0">5 fatal risks</span>, and ships a <span className="text-bone-0">48-hour falsification plan</span>.
+                        This is one line from one angle. The full read runs <span className="text-bone-0">seven angles</span>, finds <span className="text-bone-0">structural risks</span>, and delivers a <span className="text-bone-0">48-hour test plan</span>.
                       </p>
                       <div className="flex flex-wrap items-center gap-3">
                         <button
@@ -292,9 +280,8 @@ export function InlineTry() {
                           href="/auth?next=/dashboard/validate"
                           onClick={handleEscalate}
                           className="tab-cta"
-                          data-cursor="file"
                         >
-                          <span>File the real memo</span>
+                          <span>Write the real brief</span>
                           <span className="tab-cta-arrow">→</span>
                         </Link>
                       </div>
@@ -313,7 +300,7 @@ export function InlineTry() {
                     initial={{ x: "-100%" }}
                     animate={{ x: "100%" }}
                     transition={{ duration: 1.05, ease: "linear" }}
-                    className="h-px w-full bg-bone-0"
+                    className="h-px w-full bg-ember/40"
                   />
                 </motion.div>
               )}

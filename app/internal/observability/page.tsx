@@ -4,7 +4,7 @@ import { getAuthSession } from "@/lib/auth"
 import { aggregateProductIntel, isInternalObsViewer } from "@/lib/product-intelligence/store"
 
 export const metadata = {
-  title: "Internal observability · FutureValidate",
+  title: "Internal observability · VERDIKT",
   robots: { index: false, follow: false },
 }
 

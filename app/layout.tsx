@@ -1,23 +1,22 @@
 import type React from "react"
 import type { Metadata } from "next"
-import { Inter_Tight, Instrument_Serif, JetBrains_Mono } from "next/font/google"
+import { Inter, JetBrains_Mono, Sora } from "next/font/google"
 import "./globals.css"
 import { Providers } from "@/components/providers"
 import { AuthProvider } from "@/contexts/auth-context"
 
-const sans = Inter_Tight({
+const display = Sora({
+  subsets: ["latin"],
+  variable: "--font-display",
+  display: "swap",
+  weight: ["500", "600", "700"],
+})
+
+const sans = Inter({
   subsets: ["latin"],
   variable: "--font-sans",
   display: "swap",
-  weight: ["400", "500", "600", "700"],
-})
-
-const serif = Instrument_Serif({
-  subsets: ["latin"],
-  variable: "--font-serif",
-  display: "swap",
-  weight: ["400"],
-  style: ["normal", "italic"],
+  weight: ["400", "500", "600"],
 })
 
 const mono = JetBrains_Mono({
@@ -28,9 +27,21 @@ const mono = JetBrains_Mono({
 })
 
 export const metadata: Metadata = {
-  title: "FutureValidate — private founder reflection",
+  metadataBase: new URL(process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000"),
+  title: "VERDIKT — structured idea validation for founders",
   description:
-    "A calm room for founders — file what you're thinking, receive structured tension and a single decision frame. No audience. No performance.",
+    "The memo before the build. Describe a startup idea in plain language. Get tradeoffs, a BUILD / PIVOT / KILL verdict, and a short test plan — private archive when you’re signed in.",
+  openGraph: {
+    title: "VERDIKT — The memo before the build",
+    description:
+      "Structured startup memos with BUILD / PIVOT / KILL verdicts, tensions visible, and 48-hour tests — before you sink months into build.",
+    type: "website",
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "VERDIKT",
+    description: "The memo before the build.",
+  },
 }
 
 export default function RootLayout({
@@ -39,7 +50,10 @@ export default function RootLayout({
   children: React.ReactNode
 }) {
   return (
-    <html lang="en" className={`dark ${sans.variable} ${serif.variable} ${mono.variable}`}>
+    <html
+      lang="en"
+      className={`${display.variable} ${sans.variable} ${mono.variable}`}
+    >
       <body className="font-sans bg-ink-0 text-bone-0 antialiased">
         <Providers>
           <AuthProvider>{children}</AuthProvider>

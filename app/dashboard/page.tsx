@@ -1,21 +1,27 @@
 "use client"
 
 import { useEffect, useMemo, useState } from "react"
-import Link from "next/link"
 import { motion } from "framer-motion"
 import { useRouter } from "next/navigation"
 import { useAuth } from "@/contexts/auth-context"
 import { DashboardNav } from "@/components/dashboard-nav"
 import { DashboardOperatingSpine } from "@/components/dashboard-operating-spine"
-import { microcopy } from "@/lib/microcopy"
+import { ThoughtStream } from "@/components/thought-stream"
+import { ActiveTensions } from "@/components/active-tensions"
+import { IdeaGraveyard } from "@/components/idea-graveyard"
+import { MemoArchiveSearch } from "@/components/memo-archive-search"
+import { ChamberLink } from "@/components/chamber"
+import { AnimatedStat } from "@/components/marketing/animated-stat"
+import { Skeleton } from "@/components/ui/skeleton"
 import { ease } from "@/lib/motion"
+import { toastDraftContinued } from "@/lib/verdict-toast"
+import { deriveActiveTensions, whereYouLeftOff } from "@/lib/cognition"
 import type { ProgressionWorkspacePayload } from "@/lib/founder-memory/bundle"
 import type { ExecutionWorkspacePayload } from "@/lib/founder-memory/execution-workspace"
 import type { BlindSpotObservation } from "@/lib/founder-memory/types"
-import { readDecisionHistory } from "@/lib/founder-workflow/storage"
 import type { DecisionRecord } from "@/lib/founder-workflow/types"
-
-type Verdict = "BUILD" | "PIVOT" | "KILL"
+import { microcopy } from "@/lib/microcopy"
+import { cn } from "@/lib/utils"
 
 function recordTimeMs(r: DecisionRecord): number {
   const raw = r.timestamp || r.createdAt
@@ -23,18 +29,12 @@ function recordTimeMs(r: DecisionRecord): number {
   return Number.isFinite(ms) ? ms : 0
 }
 
-function recordDateLabel(r: DecisionRecord): string {
-  const ms = recordTimeMs(r)
-  if (!ms) return "unknown"
-  return new Date(ms).toISOString().slice(0, 10)
-}
-
+/** Signed-in home: quick draft box, tensions, memo list, continuity. */
 export default function DashboardPage() {
   const { user, loading } = useAuth()
   const router = useRouter()
 
   const [records, setRecords] = useState<DecisionRecord[]>([])
-  const [serverRecords, setServerRecords] = useState<DecisionRecord[]>([])
   const [hydrated, setHydrated] = useState(false)
   const [usage, setUsage] = useState<{ used: number; limit: number; resetInSeconds: number } | null>(null)
   const [draft, setDraft] = useState("")
@@ -62,12 +62,7 @@ export default function DashboardPage() {
       .then((j) => {
         if (cancelled) return
         if (!j?.success) {
-          setFm({
-            journeyLines: [],
-            execution: null,
-            progression: null,
-            blindSpots: [],
-          })
+          setFm({ journeyLines: [], execution: null, progression: null, blindSpots: [] })
           setFmBusy(false)
           return
         }
@@ -106,12 +101,7 @@ export default function DashboardPage() {
       })
       .catch(() => {
         if (!cancelled) {
-          setFm({
-            journeyLines: [],
-            execution: null,
-            progression: null,
-            blindSpots: [],
-          })
+          setFm({ journeyLines: [], execution: null, progression: null, blindSpots: [] })
           setFmBusy(false)
         }
       })
@@ -121,19 +111,38 @@ export default function DashboardPage() {
   }, [user, router])
 
   useEffect(() => {
-    setRecords(readDecisionHistory())
+    if (!user) return
     setHydrated(true)
-
-    fetch("/api/decision-history")
+    fetch("/api/decision-history", { credentials: "same-origin" })
       .then((r) => (r.ok ? r.json() : null))
       .then((j) => {
-        if (Array.isArray(j?.records)) setServerRecords(j.records as DecisionRecord[])
-        else if (Array.isArray(j?.decisions)) setServerRecords(j.decisions as DecisionRecord[])
+        const rows = Array.isArray(j?.decisions) ? j.decisions : []
+        const mapped: DecisionRecord[] = rows.map(
+          (d: {
+            id: string
+            ideaId: string
+            ideaTitle?: string
+            verdict: DecisionRecord["verdict"]
+            opportunityScore?: number
+            summary?: string
+            timestamp: string
+          }) => ({
+            id: d.id,
+            ideaId: d.ideaId,
+            ideaTitle: d.ideaTitle,
+            title: d.ideaTitle,
+            verdict: d.verdict,
+            opportunityScore: d.opportunityScore,
+            summary: d.summary,
+            timestamp: d.timestamp,
+            createdAt: d.timestamp,
+          }),
+        )
+        setRecords(mapped)
       })
       .catch(() => {})
-  }, [])
+  }, [user])
 
-  // Live usage
   useEffect(() => {
     if (!user) return
     const fp = readFingerprint()
@@ -146,34 +155,51 @@ export default function DashboardPage() {
   }, [user])
 
   const merged = useMemo(() => {
-    const byKey = new Map<string, DecisionRecord>()
-    for (const r of [...serverRecords, ...records]) {
-      const key = `${r.ideaId}::${recordTimeMs(r)}`
-      if (!byKey.has(key)) byKey.set(key, r)
-    }
-    return Array.from(byKey.values()).sort((a, b) => recordTimeMs(b) - recordTimeMs(a))
-  }, [records, serverRecords])
+    return [...records].sort((a, b) => recordTimeMs(b) - recordTimeMs(a))
+  }, [records])
+
+  const livingStream = useMemo(() => merged.filter((r) => r.verdict !== "KILL"), [merged])
+  const tensions = useMemo(() => deriveActiveTensions(merged), [merged])
+  const contextLine = useMemo(() => whereYouLeftOff(merged), [merged])
 
   function handleQuickFile() {
     if (!draft.trim() || draft.trim().length < 8) return
     try {
-      const payload = {
-        title: draft.slice(0, 80).trim(),
-        description: draft.trim(),
-      }
+      const payload = { title: draft.slice(0, 80).trim(), description: draft.trim() }
       localStorage.setItem("fv_prefill_validate", JSON.stringify(payload))
     } catch {}
+    // Fire the chamber curtain manually since this is a programmatic nav,
+    // not a ChamberLink. Hold ~480ms so the dim lands before the route swap.
+    if (typeof window !== "undefined") {
+      const reduced = window.matchMedia("(prefers-reduced-motion: reduce)").matches
+      if (!reduced) {
+        window.dispatchEvent(new CustomEvent("chamber:enter"))
+        setTimeout(() => router.push("/dashboard/validate"), 480)
+        toastDraftContinued()
+        return
+      }
+    }
+    toastDraftContinued()
     router.push("/dashboard/validate")
   }
-
-  const dboard = microcopy.dashboard
 
   if (loading || !user || fmBusy || fm === null) {
     return (
       <div className="min-h-screen bg-ink-0 text-bone-0">
         <DashboardNav />
-        <main className="grid h-[60vh] place-items-center">
-          <span className="mono-caption tabular text-bone-2">{dboard.loading}</span>
+        <main className="mx-auto max-w-[1080px] px-6 pb-32 pt-12 md:px-12 md:pt-20">
+          <div className="space-y-10">
+            <div className="space-y-4">
+              <Skeleton className="h-3 w-24 rounded-sm bg-bone-0/[0.07]" />
+              <Skeleton className="h-12 w-full max-w-[560px] rounded-sm bg-bone-0/[0.06]" />
+              <Skeleton className="h-3 w-40 rounded-sm bg-bone-0/[0.05]" />
+            </div>
+            <Skeleton className="h-[220px] w-full rounded-sm bg-bone-0/[0.05]" />
+            <div className="grid gap-4 md:grid-cols-2">
+              <Skeleton className="h-24 rounded-sm bg-bone-0/[0.05]" />
+              <Skeleton className="h-24 rounded-sm bg-bone-0/[0.05]" />
+            </div>
+          </div>
         </main>
       </div>
     )
@@ -183,39 +209,48 @@ export default function DashboardPage() {
   const limit = usage?.limit ?? 2
   const remaining = Math.max(0, limit - used)
   const limitReached = remaining === 0
-  const contextLine = getContextLine(merged.length, merged[0])
 
   return (
     <div className="min-h-screen bg-ink-0 text-bone-0">
       <DashboardNav />
 
-      <main className="mx-auto max-w-[1040px] px-6 pb-32 pt-8 md:px-10 md:pt-12">
-        {/* CONTEXT LINE — quiet, informative, non-dominant */}
-        <motion.div
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          transition={{ duration: 0.5, ease: ease.editorial }}
-          className="flex flex-wrap items-center justify-between gap-3"
-        >
-          <p className="text-[15px] leading-relaxed text-bone-1">
-            {contextLine}
-          </p>
-          <span className="mono-caption tabular text-bone-2">
-            {remaining} of {limit} today
-            {limitReached && usage?.resetInSeconds ? (
-              <span> · resets in <ResetCountdown seconds={usage.resetInSeconds} /></span>
-            ) : null}
-          </span>
-        </motion.div>
-
-        {/* QUICK BRIEF — the hero element. Notebook energy. */}
+      <main className="mx-auto max-w-[1080px] px-6 pb-32 pt-12 md:px-12 md:pt-20">
+        {/* ----- Where your thinking left off ----- */}
         <motion.section
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          transition={{ duration: 0.6, delay: 0.1, ease: ease.editorial }}
-          className="mt-8 md:mt-10"
+          initial={{ opacity: 0, y: 8 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.9, ease: ease.editorial }}
+          className="max-w-[700px]"
         >
-          <div className="bg-bone-0/[0.025] p-6 md:p-8" data-cursor="input">
+          <p className="mono-caption text-ember/80">{microcopy.dashboard.statusEyebrow}</p>
+          <h1 className="mt-5 font-serif text-[clamp(28px,3.6vw,46px)] font-light leading-[1.15] tracking-[-0.025em] text-bone-0">
+            {contextLine}
+          </h1>
+          <div className="mt-6 flex flex-wrap items-center gap-4 text-bone-2">
+            <span className="mono-caption tabular">
+              {microcopy.validate.counter(used, limit)}
+            </span>
+            <UsageSegments used={used} limit={limit} />
+            {limitReached && usage?.resetInSeconds ? (
+              <>
+                <span className="h-px w-4 bg-bone-0/[0.1]" />
+                <span className="mono-caption tabular">
+                  resets in <ResetCountdown seconds={usage.resetInSeconds} />
+                </span>
+              </>
+            ) : null}
+          </div>
+        </motion.section>
+
+        {/* ----- Writing chamber ----- */}
+        <motion.section
+          initial={{ opacity: 0, y: 8 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.9, delay: 0.15, ease: ease.editorial }}
+          className="mt-14 md:mt-20"
+        >
+          <div className="chamber rounded-sm p-8 md:p-12">
+            <p className="mono-caption text-bone-2">{microcopy.dashboard.quickBriefEyebrow}</p>
             <textarea
               rows={2}
               value={draft}
@@ -229,68 +264,87 @@ export default function DashboardPage() {
               }}
               placeholder={
                 limitReached
-                  ? dboard.quickBriefPlaceholderDisabled
-                  : "The idea that won\u2019t leave\u2026"
+                  ? microcopy.dashboard.quickBriefPlaceholderDisabled
+                  : microcopy.dashboard.quickBriefPlaceholder
               }
-              className="w-full resize-none border-0 bg-transparent font-serif text-[clamp(22px,2.8vw,36px)] leading-[1.25] tracking-[-0.015em] text-bone-0 placeholder:text-bone-2/50 focus:outline-none disabled:opacity-40"
+              className="mt-6 w-full resize-none border-0 bg-transparent font-serif text-[clamp(22px,2.8vw,36px)] font-light leading-[1.25] tracking-[-0.02em] text-bone-0 placeholder:text-bone-2/40 focus:outline-none disabled:opacity-40"
               autoFocus
             />
 
-            <div className="mt-5 flex flex-wrap items-center justify-between gap-3 border-t border-bone-0/[0.05] pt-4">
-              <span className="mono-caption tabular text-bone-2">
-                {draft.length > 0 ? `${draft.length} chars` : ""} {draft.length > 0 ? "· " : ""}⌘⏎ to file
+            <div className="mt-8 flex flex-wrap items-center justify-between gap-3 border-t border-bone-0/[0.08] pt-5">
+              <span className="mono-caption tabular text-bone-2 inline-flex flex-wrap items-baseline gap-x-1.5">
+                <span className="inline-flex items-baseline gap-1">
+                  <AnimatedStat value={draft.length} className="tabular text-bone-2" />
+                  <span>chars</span>
+                </span>
+                <span className="text-bone-2/60">· ⌘⏎ when ready</span>
               </span>
-              <button
+              <motion.button
                 type="button"
                 onClick={handleQuickFile}
                 disabled={limitReached || draft.trim().length < 8}
-                className={`tab-cta ${limitReached || draft.trim().length < 8 ? "pointer-events-none opacity-40" : ""}`}
+                initial={{ opacity: 0 }}
+                animate={{ opacity: draft.trim().length >= 8 ? 1 : 0 }}
+                transition={{ duration: 0.4, ease: ease.editorial }}
+                className={`tab-cta ${limitReached || draft.trim().length < 8 ? "pointer-events-none" : ""}`}
               >
-                <span>{dboard.quickBriefSubmit}</span>
+                <span>{microcopy.validate.submit}</span>
                 <span className="tab-cta-arrow">→</span>
-              </button>
+              </motion.button>
             </div>
           </div>
         </motion.section>
 
-        {/* DECISION LEDGER — the journal */}
-        <section className="mt-16 md:mt-20">
-          <header className="mb-5 flex items-end justify-between border-b border-bone-0/[0.06] pb-5">
+        {/* ----- Active Tensions ----- */}
+        {tensions.length > 0 && (
+          <div className="mt-24 md:mt-32">
+            <ActiveTensions tensions={tensions} />
+          </div>
+        )}
+
+        {/* ----- Thought Stream ----- */}
+        <section className="mt-24 md:mt-32">
+          <header className="mb-10 flex items-end justify-between border-b border-bone-0/[0.08] pb-6">
             <div>
-              <p className="mono-caption">{dboard.ledgerEyebrow}</p>
-              <h2 className="mt-2 font-serif text-[clamp(24px,3vw,36px)] leading-tight tracking-[-0.02em]">
-                {dboard.ledgerTitle}
+              <p className="mono-caption text-bone-2">{microcopy.dashboard.ledgerEyebrow}</p>
+              <h2 className="mt-3 font-serif text-[clamp(28px,3.4vw,44px)] font-light leading-[1.1] tracking-[-0.025em] text-bone-0">
+                {microcopy.dashboard.ledgerTitle}
               </h2>
             </div>
-            <Link href="/dashboard/validate" className="tab-cta" data-cursor="file">
-              <span className="hidden sm:inline">{dboard.nav.memo}</span>
-              <span className="sm:hidden">File</span>
+            <ChamberLink href="/dashboard/validate" className="tab-cta hidden md:inline-flex">
+              <span>{microcopy.dashboard.nav.memo}</span>
               <span className="tab-cta-arrow">→</span>
-            </Link>
+            </ChamberLink>
           </header>
 
           {!hydrated ? (
-            <div className="mono-caption tabular text-bone-2">loading…</div>
-          ) : merged.length === 0 ? (
-            <EmptyLedger />
+            <p className="mono-caption tabular text-bone-2">{microcopy.dashboard.loading}</p>
+          ) : livingStream.length === 0 ? (
+            <EmptyStream />
           ) : (
-            <ul className="border-y border-bone-0/[0.08]">
-              {merged.slice(0, 12).map((r, i) => (
-                <RecordRow key={`${r.ideaId}-${r.timestamp}-${i}`} r={r} />
-              ))}
-            </ul>
+            <ThoughtStream records={livingStream.slice(0, 12)} />
           )}
 
-          {merged.length > 12 && (
-            <p className="mono-caption mt-5 tabular text-bone-2">
-              {merged.length - 12} {microcopy.dashboard.archivedMore}
+          {livingStream.length > 12 && (
+            <p className="mono-caption mt-8 tabular text-bone-2">
+              {livingStream.length - 12} more on record
             </p>
           )}
+
+          <div className="mt-16">
+            <MemoArchiveSearch />
+          </div>
         </section>
 
-        {/* OPERATING SPINE — secondary context, lower on page */}
+        {/* ----- Idea Graveyard ----- */}
+        <div className="mt-24 md:mt-32">
+          <IdeaGraveyard records={merged} />
+        </div>
+
+        {/* ----- Continuity Spine ----- */}
         {(fm.journeyLines.length > 0 || fm.execution || fm.progression || fm.blindSpots.length > 0) && (
-          <section className="mt-20">
+          <section className="mt-24 md:mt-32 border-t border-bone-0/[0.08] pt-12 md:pt-16">
+            <p className="mono-caption mb-3 text-bone-2">{microcopy.dashboard.spine.eyebrow}</p>
             <DashboardOperatingSpine
               journeyLines={fm.journeyLines}
               execution={fm.execution}
@@ -305,8 +359,25 @@ export default function DashboardPage() {
 }
 
 /* -------------------------------------------------------------------------- */
-/*  Sub-components                                                            */
-/* -------------------------------------------------------------------------- */
+
+function UsageSegments({ used, limit }: { used: number; limit: number }) {
+  return (
+    <div className="flex items-center gap-1.5 border-l border-bone-0/[0.08] pl-4" aria-hidden>
+      <span className="mono-caption sr-only">{used} of {limit} runs used</span>
+      <div className="flex gap-0.5">
+        {Array.from({ length: limit }, (_, i) => (
+          <span
+            key={i}
+            className={cn(
+              "h-2.5 w-8 rounded-[1px]",
+              i < used ? "bg-bone-0" : "bg-bone-0/12",
+            )}
+          />
+        ))}
+      </div>
+    </div>
+  )
+}
 
 function ResetCountdown({ seconds }: { seconds: number }) {
   const [s, setS] = useState(seconds)
@@ -325,68 +396,25 @@ function ResetCountdown({ seconds }: { seconds: number }) {
   )
 }
 
-function RecordRow({ r }: { r: DecisionRecord }) {
-  const verdict = (r.verdict as Verdict) || "PIVOT"
-  const tone =
-    verdict === "BUILD" ? "text-verdict-build" : verdict === "KILL" ? "text-verdict-kill" : "text-verdict-pivot"
-  const accent =
-    verdict === "BUILD" ? "bg-verdict-build" : verdict === "KILL" ? "bg-verdict-kill" : "bg-verdict-pivot"
-  const date = recordDateLabel(r)
-  const score = r.opportunityScore != null ? Math.round(r.opportunityScore) : null
-
+function EmptyStream() {
   return (
-    <li
-      className="group relative border-b border-bone-0/[0.08] last:border-b-0"
-    >
-      <div className={`absolute left-0 top-0 h-full w-px ${accent} opacity-0 transition-opacity duration-200 group-hover:opacity-100`} aria-hidden />
-      <div className="grid grid-cols-[1fr_64px] items-baseline gap-4 px-4 py-5 transition-colors group-hover:bg-bone-0/[0.02] md:grid-cols-[100px_100px_1fr_100px_40px] md:gap-5 md:px-5 md:py-5">
-        <span className="mono-caption tabular text-bone-2 hidden md:inline">{date}</span>
-        <span className={`mono-caption tabular hidden md:inline ${tone}`}>{verdict}</span>
-        <div>
-          <div className="font-serif text-[clamp(17px,1.9vw,22px)] leading-snug tracking-[-0.015em] text-bone-0">
-            {r.ideaTitle || r.summary || "Untitled brief"}
-          </div>
-          <div className="mt-1 flex items-center gap-3 md:hidden">
-            <span className="mono-caption tabular text-bone-2">{date}</span>
-            <span className={`mono-caption tabular ${tone}`}>{verdict}</span>
-            {score != null && (
-              <span className="mono-caption tabular text-bone-1">{score}/100</span>
-            )}
-          </div>
-        </div>
-        <span className="tabular mono-caption hidden text-right text-bone-1 md:inline">
-          {score != null ? `${score}/100` : "—"}
-        </span>
-        <span className="text-right">
-          <span className="mono-caption text-bone-2 transition-all group-hover:translate-x-1 group-hover:text-bone-0">→</span>
-        </span>
-      </div>
-    </li>
-  )
-}
-
-function EmptyLedger() {
-  return (
-    <div className="py-16 text-center md:py-20">
-      <p className="font-serif text-[clamp(20px,2.4vw,28px)] italic text-bone-1">
-        {microcopy.empty.decisions}
+    <div className="py-20 text-center md:py-28">
+      <p className="font-serif text-[clamp(22px,2.6vw,32px)] font-light italic leading-[1.3] tracking-[-0.015em] text-bone-1">
+        The room is quiet.<br />
+        File the first thought when the idea won't leave.
       </p>
-      <Link href="/dashboard/validate" className="tab-cta mt-8 inline-flex" data-cursor="file">
-        <span>Begin</span>
+      <ChamberLink href="/dashboard/validate" className="tab-cta mt-12 inline-flex">
+        <span>start writing</span>
         <span className="tab-cta-arrow">→</span>
-      </Link>
+      </ChamberLink>
     </div>
   )
 }
 
-/* -------------------------------------------------------------------------- */
-/*  Helpers                                                                   */
-/* -------------------------------------------------------------------------- */
-
 function autosize(el: HTMLTextAreaElement | null) {
   if (!el) return
   el.style.height = "auto"
-  el.style.height = `${Math.min(el.scrollHeight, 240)}px`
+  el.style.height = `${Math.min(el.scrollHeight, 280)}px`
 }
 
 function readFingerprint(): string | null {
@@ -401,20 +429,4 @@ function readFingerprint(): string | null {
   } catch {
     return null
   }
-}
-
-function getContextLine(memoCount: number, lastRecord?: DecisionRecord | null): string {
-  if (memoCount === 0) return "Nothing on file yet. Start when the idea won\u2019t leave."
-
-  // Check how long since last memo
-  if (lastRecord) {
-    const ms = recordTimeMs(lastRecord)
-    if (ms > 0) {
-      const daysSince = Math.floor((Date.now() - ms) / (1000 * 60 * 60 * 24))
-      if (daysSince > 7) return "Been a while. The archive hasn\u2019t moved \u2014 maybe you have."
-    }
-  }
-
-  if (memoCount === 1) return "One memo on record. The second one is always sharper."
-  return `${memoCount} memos on file. Open the latest, or start fresh.`
 }

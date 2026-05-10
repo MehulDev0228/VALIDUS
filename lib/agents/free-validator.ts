@@ -51,7 +51,7 @@ export async function runFreeValidation(idea: IdeaInput): Promise<FreeValidation
   } catch (err) {
     const reason =
       err instanceof Error ? err.message : "Gemini pipeline error — heuristic fallback"
-    console.error("[FutureValidate] v2 Gemini pipeline failed, using heuristic fallback:", err)
+    console.error("[VERDIKT] v2 Gemini pipeline failed, using heuristic fallback:", err)
     const h = heuristicReport(idea, queryKnowledgeGraph(idea, 14))
     return withEngineMeta(h, {
       degraded: true,

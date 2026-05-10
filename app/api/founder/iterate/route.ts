@@ -39,7 +39,7 @@ export async function POST(request: NextRequest) {
     }
     const weaker = Array.from(new Set(weaknesses.map((s) => String(s).trim()).filter(Boolean))).slice(0, 12)
 
-    const prompt = `You are the FutureValidate Iteration Engine.
+    const prompt = `You are the VERDIKT Iteration Engine.
 Goal: Produce the next sharper version of the startup thesis so the founder can DECIDE faster and VALIDATE honestly.
 
 Return STRICT JSON only:

@@ -5,28 +5,6 @@ export const FREE_DAILY_LIMIT = MAX_FREE_PER_DAY
 
 type Timestamp = number
 
-const freeUsageByKey = new Map<string, Timestamp[]>()
-
-function pruneOld(now: number, timestamps: Timestamp[]): Timestamp[] {
-  return timestamps.filter((ts) => now - ts < ONE_DAY_MS)
-}
-
-function readInMemoryCount(key: string): number {
-  const now = Date.now()
-  const existing = freeUsageByKey.get(key) ?? []
-  const recent = pruneOld(now, existing)
-  freeUsageByKey.set(key, recent)
-  return recent.length
-}
-
-function recordInMemory(key: string): void {
-  const now = Date.now()
-  const existing = freeUsageByKey.get(key) ?? []
-  const recent = pruneOld(now, existing)
-  recent.push(now)
-  freeUsageByKey.set(key, recent)
-}
-
 function stableHash(input: string): string {
   let hash = 2166136261
   for (let i = 0; i < input.length; i++) {
@@ -38,7 +16,7 @@ function stableHash(input: string): string {
 
 function buildDailyKey(rawKey: string): string {
   const dateKey = new Date().toISOString().slice(0, 10)
-  return `fv:free:daily:${dateKey}:${stableHash(rawKey)}`
+  return `verdikt:free:daily:${dateKey}:${stableHash(rawKey)}`
 }
 
 async function getUpstashRedis() {
@@ -49,19 +27,34 @@ async function getUpstashRedis() {
   return new Redis({ url, token })
 }
 
+function redisRequired(): boolean {
+  return process.env.NODE_ENV === "production"
+}
+
 /**
  * Read the current daily count for a key. Used to drive the dashboard usage
  * meter without requiring a write side-effect.
  */
 export async function readFreeUsage(key: string): Promise<number> {
   const redis = await getUpstashRedis()
-  if (!redis) return readInMemoryCount(key)
+  if (!redis) {
+    if (redisRequired()) {
+      console.error("[rate-limit] UPSTASH_REDIS_REST_URL / TOKEN required in production")
+      return MAX_FREE_PER_DAY
+    }
+    return 0
+  }
   const dailyKey = buildDailyKey(key)
   const count = (await redis.get<number>(dailyKey)) ?? 0
   return count
 }
 
 export async function canConsumeFreeValidation(key: string): Promise<boolean> {
+  const redis = await getUpstashRedis()
+  if (!redis) {
+    if (redisRequired()) return false
+    return true
+  }
   const count = await readFreeUsage(key)
   return count < MAX_FREE_PER_DAY
 }
@@ -69,7 +62,9 @@ export async function canConsumeFreeValidation(key: string): Promise<boolean> {
 export async function recordFreeValidation(key: string): Promise<void> {
   const redis = await getUpstashRedis()
   if (!redis) {
-    recordInMemory(key)
+    if (redisRequired()) {
+      console.error("[rate-limit] cannot record usage — Redis missing in production")
+    }
     return
   }
   const dailyKey = buildDailyKey(key)
@@ -82,7 +77,7 @@ export async function recordFreeValidation(key: string): Promise<void> {
 export function getClientIpFromRequest(request: Request & { ip?: string | null }): string {
   const hdr = request.headers.get("x-forwarded-for")
   const headerIp = hdr ? hdr.split(",")[0].trim() : null
-  const ip = (request as any).ip ?? headerIp ?? "unknown"
+  const ip = (request as { ip?: string | null }).ip ?? headerIp ?? "unknown"
   return ip
 }
 

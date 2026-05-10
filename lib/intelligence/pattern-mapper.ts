@@ -1,6 +1,8 @@
 import type { IdeaInput } from "@/lib/schemas/idea"
 import type { StartupArchetype } from "@/lib/agents/category-lens"
 import { inferArchetype } from "@/lib/agents/category-lens"
+import type { IndustryClassification, IndustryVertical } from "@/lib/intelligence/industry-types"
+import { isExplicitTwoSidedMarketplaceText } from "@/lib/intelligence/industry-classification"
 import { deriveBehavioralMechanics } from "@/lib/intelligence/behavioral-mechanics"
 import { buildPatternExecutionFallback, deriveDistributionMechanics } from "@/lib/intelligence/distribution-mechanics"
 import { deriveFounderNarrativeHooks, deriveFounderVerdictPressure } from "@/lib/intelligence/founder-mechanics"
@@ -63,9 +65,29 @@ function countHits(t: string, keys: string[]): number {
   return keys.reduce((n, k) => n + (t.includes(k) ? 1 : 0), 0)
 }
 
-function scoreMarketTypes(t: string): Record<MarketType, number> {
+function scoreMarketTypes(t: string, industry?: IndustryClassification): Record<MarketType, number> {
+  /** Avoid classifying factory/industrial "supply chain" language as a consumer marketplace */
+  const marketplaceHits = countHits(t, [
+    "marketplace",
+    "two-sided",
+    "two sided",
+    "buyers and sellers",
+    "take rate",
+    "gig economy",
+    "liquidity",
+    "disintermediation",
+    "hosts and guests",
+  ])
+  const indVertical = industry?.primaryVertical
+  const industrialAnchor =
+    countHits(t, ["factory", "manufacturing", "plc", "robot", "assembly line", "oee", "scada", "mes"]) +
+    countHits(t, ["warehouse", "fulfillment", "3pl", "forklift", "dock"])
+  let marketplace = marketplaceHits
+  if (industrialAnchor >= 3 && indVertical && indVertical !== "marketplaces") {
+    marketplace -= Math.min(9, industrialAnchor + (marketplaceHits >= 2 ? 3 : 0))
+  }
   const score: Record<MarketType, number> = {
-    marketplace: countHits(t, ["marketplace", "two-sided", "hosts", "guest", "supply", "demand", "liquidity"]),
+    marketplace,
     developer_tool: countHits(t, [
       "api",
       "sdk",
@@ -299,34 +321,75 @@ function buildMechanismBrief(
   return clip(lines.join("\n"))
 }
 
+function industryPreferredArchetype(v: IndustryVertical): StartupArchetype {
+  const map: Record<IndustryVertical, StartupArchetype> = {
+    manufacturing_robotics: "vertical_saas",
+    industrial_infra: "vertical_saas",
+    logistics: "vertical_saas",
+    healthcare: "vertical_saas",
+    biotech: "vertical_saas",
+    fintech: "fintech",
+    developer_tools: "developer_tool",
+    ai_infrastructure: "developer_tool",
+    saas: "b2b_saas",
+    marketplaces: "marketplace",
+    consumer_social: "consumer_social",
+    enterprise_workflow: "b2b_saas",
+    education: "vertical_saas",
+    creator_economy: "b2b_saas",
+    ecommerce: "ecommerce_dtc",
+    smb_software: "b2b_saas",
+    climate_energy: "vertical_saas",
+    deeptech: "hardware_subscription",
+    cybersecurity: "b2b_saas",
+  }
+  return map[v] ?? "b2b_saas"
+}
+
 function resolveEffectiveArchetype(
   idea: IdeaInput,
   t: string,
   mt: HistoricalMechanismProfile | null,
   scoredType: MarketType,
+  industry?: IndustryClassification,
 ): StartupArchetype {
   const lexical = inferArchetype(idea)
-  if (mt) return marketTypeToArchetype(mt.marketType)
+  let resolved: StartupArchetype
 
-  const patterned = marketTypeToArchetype(scoredType)
-  const wfHits = countHits(t, WORKFLOW_TERMS)
+  if (mt) {
+    resolved = marketTypeToArchetype(mt.marketType)
+  } else {
+    const patterned = marketTypeToArchetype(scoredType)
+    const wfHits = countHits(t, WORKFLOW_TERMS)
 
-  /** Strong workflow evidence should override brittle consumer_social classification (Notion/Zoom/etc.) */
-  if (wfHits >= 3 && lexical === "consumer_social") return "b2b_saas"
+    /** Strong workflow evidence should override brittle consumer_social classification (Notion/Zoom/etc.) */
+    if (wfHits >= 3 && lexical === "consumer_social") {
+      resolved = "b2b_saas"
+    } else {
+      const scores = scoreMarketTypes(t, industry)
+      /** If keyword model confident and conflicts with lexical generic/mismatch, prefer pattern */
+      if (scores[scoredType] >= 5 && lexical === "generic") resolved = patterned
+      else if (scores[scoredType] >= 6 && patterned !== lexical) resolved = patterned
+      else resolved = lexical
+    }
+  }
 
-  const scores = scoreMarketTypes(t)
-  /** If keyword model confident and conflicts with lexical generic/mismatch, prefer pattern */
-  if (scores[scoredType] >= 5 && lexical === "generic") return patterned
+  if (
+    industry &&
+    industry.primaryVertical !== "marketplaces" &&
+    resolved === "marketplace" &&
+    !isExplicitTwoSidedMarketplaceText(t)
+  ) {
+    resolved = industryPreferredArchetype(industry.primaryVertical)
+  }
 
-  if (scores[scoredType] >= 6 && patterned !== lexical) return patterned
-
-  return lexical
+  return resolved
 }
 
-export function buildPatternGraph(idea: IdeaInput): PatternGraphBundle {
+export function buildPatternGraph(idea: IdeaInput, industry?: IndustryClassification): PatternGraphBundle {
   const t = corpus(idea)
   const historicalMatches = matchHistoricalAnchors(t)
-  const scoredType = topMarket(scoreMarketTypes(t))
+  const scoredType = topMarket(scoreMarketTypes(t, industry))
 
   let pattern: StartupPattern = synthesizePattern(idea, scoredType)
   const primaryHistorical = historicalMatches[0]
@@ -336,7 +399,7 @@ export function buildPatternGraph(idea: IdeaInput): PatternGraphBundle {
     pattern.marketType = primaryHistorical.marketType
   }
 
-  const effectiveArchetype = resolveEffectiveArchetype(idea, t, primaryHistorical ?? null, scoredType)
+  const effectiveArchetype = resolveEffectiveArchetype(idea, t, primaryHistorical ?? null, scoredType, industry)
 
   const mechanismBrief = buildMechanismBrief(pattern, historicalMatches)
   const execLines = deriveDistributionMechanics(pattern)

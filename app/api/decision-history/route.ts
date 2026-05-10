@@ -1,5 +1,6 @@
 import { type NextRequest, NextResponse } from "next/server"
 import { z } from "zod"
+import { getAuthSession } from "@/lib/auth"
 import { fdsAppendDecision, fdsListDecisions } from "@/lib/founder-workflow/server-store"
 
 const PostBodySchema = z.object({
@@ -13,7 +14,12 @@ const PostBodySchema = z.object({
 
 export async function GET() {
   try {
-    const decisions = await fdsListDecisions()
+    const session = await getAuthSession()
+    const uid = session?.user?.id
+    if (!uid) {
+      return NextResponse.json({ success: false, error: "Sign-in required.", code: "AUTH_REQUIRED" }, { status: 401 })
+    }
+    const decisions = await fdsListDecisions(uid)
     return NextResponse.json({ success: true, decisions })
   } catch (e) {
     console.error("GET /api/decision-history", e)
@@ -23,6 +29,12 @@ export async function GET() {
 
 export async function POST(request: NextRequest) {
   try {
+    const session = await getAuthSession()
+    const uid = session?.user?.id
+    if (!uid) {
+      return NextResponse.json({ success: false, error: "Sign-in required.", code: "AUTH_REQUIRED" }, { status: 401 })
+    }
+
     const raw = await request.json()
     const parsed = PostBodySchema.safeParse(raw)
     if (!parsed.success) {
@@ -31,7 +43,7 @@ export async function POST(request: NextRequest) {
         { status: 400 },
       )
     }
-    const { ok, record } = await fdsAppendDecision(parsed.data)
+    const { ok, record } = await fdsAppendDecision(uid, parsed.data)
     return NextResponse.json({ success: true, persisted: ok, decision: record })
   } catch (e) {
     console.error("POST /api/decision-history", e)

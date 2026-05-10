@@ -1,15 +1,10 @@
 "use client"
 
-import { useCallback, useEffect, useMemo, useState } from "react"
+import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { useRouter } from "next/navigation"
 import type { DecisionRecord, ValidationAttempt } from "@/lib/founder-workflow/types"
 import { ideaKeyFromIdea } from "@/lib/founder-workflow/types"
-import {
-  appendDecisionRecord,
-  appendValidationAttempt,
-  readDecisionHistory,
-  readValidationAttempts,
-} from "@/lib/founder-workflow/storage"
+import { appendValidationAttempt, readValidationAttempts } from "@/lib/founder-workflow/storage"
 import type { IdeaInput } from "@/lib/schemas/idea"
 import { useAuth } from "@/contexts/auth-context"
 import { inferExperimentObservationTags } from "@/lib/founder-memory/experiment-tags"
@@ -71,6 +66,11 @@ export function FounderDecisionPanel({ validation }: Props) {
   const [logBusy, setLogBusy] = useState(false)
   const [logError, setLogError] = useState<string | null>(null)
   const [experimentReflectionGeneration, setExperimentReflectionGeneration] = useState(0)
+  const ledgerPostedRef = useRef(false)
+
+  useEffect(() => {
+    ledgerPostedRef.current = false
+  }, [ideaId])
 
   const panelVerdict = useMemo((): VerdictLean => {
     const v = (validation as Record<string, unknown> & { finalVerdict?: { decision?: string } })?.finalVerdict?.decision
@@ -100,7 +100,9 @@ export function FounderDecisionPanel({ validation }: Props) {
     }
 
     try {
-      const res = await fetch(`/api/validation-log?ideaId=${encodeURIComponent(ideaId)}`)
+      const res = await fetch(`/api/validation-log?ideaId=${encodeURIComponent(ideaId)}`, {
+        credentials: "same-origin",
+      })
       const data = await res.json()
       if (data.success && Array.isArray(data.logs)) {
         const fromServer: ValidationAttempt[] = data.logs.map(
@@ -138,65 +140,52 @@ export function FounderDecisionPanel({ validation }: Props) {
     }
   }, [])
 
-  // First-paint side effects: ensure this run is on the ledger, fetch attempts.
+  // First-paint side effects: ensure this run is on the ledger (server), fetch attempts.
   useEffect(() => {
-    if (!validation || !ideaId || !lastInput?.title) return
-    const key = ideaKeyFromIdea({ title: lastInput.title, description: lastInput.description || "" })
-    const hist = readDecisionHistory()
-    if (!hist.some((h) => h.ideaId === ideaId)) {
-      const verdict = (validation as any).finalVerdict?.decision as DecisionRecord["verdict"] | undefined
-      const createdAt = new Date().toISOString()
-      const ideaKeyStable = ideaKeyFromIdea({
-        title: lastInput.title,
-        description: lastInput.description || "",
-      })
-      const memoSnapshot = extractMemoProgressionSnapshot(
-        validation as Record<string, unknown>,
-        verdict ?? "PIVOT",
-      )
-      appendDecisionRecord({
-        id: ideaId,
+    if (!validation || !ideaId || !lastInput?.title || ledgerPostedRef.current) return
+    ledgerPostedRef.current = true
+    const verdict = (validation as any).finalVerdict?.decision as DecisionRecord["verdict"] | undefined
+    const createdAt = new Date().toISOString()
+    const ideaKeyStable = ideaKeyFromIdea({
+      title: lastInput.title,
+      description: lastInput.description || "",
+    })
+    const memoSnapshot = extractMemoProgressionSnapshot(
+      validation as Record<string, unknown>,
+      verdict ?? "PIVOT",
+    )
+    void fetch("/api/decision-history", {
+      method: "POST",
+      credentials: "same-origin",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
         ideaId,
-        ideaKey: key,
-        title: lastInput.title,
         ideaTitle: lastInput.title,
         verdict: verdict ?? "PIVOT",
         opportunityScore: (validation as any).opportunityScore,
         summary: (validation as any).finalVerdict?.brutalSummary ?? (validation as any).summary,
         timestamp: createdAt,
-        createdAt,
-      })
-      void fetch("/api/decision-history", {
+      }),
+    }).catch(() => {})
+
+    if (user?.id) {
+      void fetch("/api/founder-memory/events", {
         method: "POST",
+        credentials: "same-origin",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
+          kind: "validation_verdict",
           ideaId,
+          ideaKey: ideaKeyStable,
           ideaTitle: lastInput.title,
+          ideaExcerpt: (lastInput.description || "").slice(0, 1200),
           verdict: verdict ?? "PIVOT",
           opportunityScore: (validation as any).opportunityScore,
           summary: (validation as any).finalVerdict?.brutalSummary ?? (validation as any).summary,
-          timestamp: createdAt,
+          memoSnapshot,
+          at: createdAt,
         }),
       }).catch(() => {})
-
-      if (user?.id) {
-        void fetch("/api/founder-memory/events", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            kind: "validation_verdict",
-            ideaId,
-            ideaKey: ideaKeyStable,
-            ideaTitle: lastInput.title,
-            ideaExcerpt: (lastInput.description || "").slice(0, 1200),
-            verdict: verdict ?? "PIVOT",
-            opportunityScore: (validation as any).opportunityScore,
-            summary: (validation as any).finalVerdict?.brutalSummary ?? (validation as any).summary,
-            memoSnapshot,
-            at: createdAt,
-          }),
-        }).catch(() => {})
-      }
     }
     void refreshAttempts()
   }, [validation, ideaId, lastInput, refreshAttempts, user?.id])
@@ -205,6 +194,10 @@ export function FounderDecisionPanel({ validation }: Props) {
 
   async function handleLogAttempt() {
     setLogError(null)
+    if (!user?.id) {
+      setLogError("Sign in to log attempts — your tracker is saved to your account.")
+      return
+    }
     if (!lastInput?.title || !ideaKey) {
       setLogError("Missing brief context. Re-file a memo to seed the tracker.")
       return
@@ -225,6 +218,7 @@ export function FounderDecisionPanel({ validation }: Props) {
     try {
       await fetch("/api/validation-log", {
         method: "POST",
+        credentials: "same-origin",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           ideaId,

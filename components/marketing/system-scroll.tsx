@@ -21,7 +21,7 @@ export function SystemScroll() {
     <section id="system" data-section="system" ref={ref} className="relative h-[400vh] border-b border-bone-0/[0.06]">
       <div className="sticky top-0 flex h-screen flex-col overflow-hidden">
         <div className="mx-auto flex w-full max-w-[1440px] items-center justify-between px-6 pt-24 pb-6 md:px-10">
-          <p className="mono-caption">{microcopy.system.eyebrow}</p>
+          <p className="mono-caption text-ember/60">{microcopy.system.eyebrow}</p>
           <ProgressTrack progress={progress} />
         </div>
 
@@ -73,7 +73,7 @@ function ProgressTrack({ progress }: { progress: any }) {
   const width = useTransform(progress, [0, 1], ["0%", "100%"])
   return (
     <div className="relative h-px w-40 bg-bone-0/10 md:w-80">
-      <motion.div style={{ width }} className="absolute inset-y-0 left-0 bg-bone-0" />
+      <motion.div style={{ width }} className="absolute inset-y-0 left-0 bg-ember/60" />
     </div>
   )
 }
@@ -81,9 +81,9 @@ function ProgressTrack({ progress }: { progress: any }) {
 function StageDiagram({ index }: { index: number }) {
   // Minimal forensic glyph per stage — pure geometry, no illustration.
   return (
-    <div className="aspect-square w-full max-w-[260px] border border-bone-0/10 p-6">
+    <div className="aspect-square w-full max-w-[260px] border border-bone-0/[0.06] p-6">
       {index === 0 && (
-        <div className="grid h-full grid-cols-3 grid-rows-3 gap-[1px] bg-bone-0/10">
+        <div className="grid h-full grid-cols-3 grid-rows-3 gap-[1px] bg-bone-0/[0.06]">
           {Array.from({ length: 9 }).map((_, i) => (
             <div key={i} className="bg-ink-0" />
           ))}
@@ -94,7 +94,7 @@ function StageDiagram({ index }: { index: number }) {
           {[0.3, 0.55, 0.8, 0.45, 0.7].map((w, i) => (
             <div
               key={i}
-              className="h-px bg-bone-0/40"
+              className="h-px bg-ember/30"
               style={{ width: `${w * 100}%` }}
             />
           ))}
@@ -110,7 +110,7 @@ function StageDiagram({ index }: { index: number }) {
             return (
               <span
                 key={i}
-                className="absolute left-1/2 top-1/2 h-1.5 w-1.5 -translate-x-1/2 -translate-y-1/2 bg-bone-0"
+                className="absolute left-1/2 top-1/2 h-1.5 w-1.5 -translate-x-1/2 -translate-y-1/2 bg-bone-0/30"
                 style={{ transform: `translate(${x}px, ${y}px)` }}
               />
             )
@@ -123,7 +123,7 @@ function StageDiagram({ index }: { index: number }) {
           <span className="font-sans text-[44px] font-semibold leading-none text-verdict-build">
             BUILD
           </span>
-          <span className="mono-caption">verdict on file</span>
+          <span className="mono-caption text-bone-2">frame set</span>
         </div>
       )}
     </div>

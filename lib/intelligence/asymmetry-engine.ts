@@ -376,20 +376,20 @@ export function nudgeVerdictForInevitability(
 /** Diverse heuristic / fallback lines — keyed by archetype label + seed (anti template collapse). */
 export function diversifiedPivotSummary(lensLabel: string, seed: number, dominantType?: InevitabilitySignalType): string {
   const pool = [
-    `PIVOT (${lensLabel}): The wedge earns another shot only once you falsify WHICH manual ritual you replace — not investor curiosity.`,
+    `PIVOT (${lensLabel}): The wedge earns another shot only once you falsify WHICH concrete operational failure mode you remove — not investor curiosity.`,
     `PIVOT (${lensLabel}): Keep the asymmetric insight — torch the theatrical deck until one buyer pays cash for ONE narrow failure mode.`,
-    `PIVOT (${lensLabel}): Compounding hinges on geography or ritual density — scale narrative pauses until that cell proves repetition.`,
-    `PIVOT (${lensLabel}): You may be directionally inevitable and executionally clumsy — re-cut the SKU until shame leaves the onboarding path.`,
-    `PIVOT (${lensLabel}): Stop collecting opinions; isolate the behavior that quietly already happens offline and instrument that alone.`,
-    `PIVOT (${lensLabel}): Category tailwinds ≠ your tailwind — name the bottleneck that wakes up daily without your logo.`,
+    `PIVOT (${lensLabel}): Depth beats theatrical scale claims — pause widening until one geography or one workflow proves repetition with receipts.`,
+    `PIVOT (${lensLabel}): You may be directionally right and executionally clumsy — re-cut the SKU until failure drops on a measured KPI.`,
+    `PIVOT (${lensLabel}): Stop collecting opinions; isolate the workaround that already happens on the floor or in the budget line — instrument that.`,
+    `PIVOT (${lensLabel}): Sector momentum ≠ your momentum — name the daily bottleneck that pays for itself without your logo story.`,
   ]
   const typeSkew =
     dominantType === "distribution_compounding"
-      ? ` Invite geometry first: recipient-side embarrassment test before paid ads pretend to solve growth.`
+      ? ` Second-side pull matters only where the idea truly has cross-side adoption — prove it with named hops and budgets, not analogy.`
       : dominantType === "workflow_gravity"
-        ? ` Workflow cadence beats feature breadth — deepen one painful repeat event before branching.`
+        ? ` Repeat-event cadence beats feature breadth — deepen one painful repeat incident before branching.`
         : dominantType === "trust_reframing"
-          ? ` Trust is the SKU — quantify variance reduction richer than prettier UI mockups.`
+          ? ` Trust is the SKU — quantify variance reduction with operational metrics, not mockups.`
           : ""
 
   let pick = pool[seed % pool.length]

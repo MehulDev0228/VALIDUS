@@ -5,34 +5,34 @@ import { motion, AnimatePresence, useReducedMotion } from "framer-motion"
 import { microcopy } from "@/lib/microcopy"
 import { ease } from "@/lib/motion"
 
-const AGENTS = [
-  { tag: "MKT", name: "Market Research", line: "Tier-2 willingness-to-pay is thin. Pricing assumption flagged." },
-  { tag: "CMP", name: "Competitor", line: "Three incumbents already ship 70% of the wedge — for free." },
-  { tag: "MON", name: "Monetization", line: "Buyer is the engineer. Engineers don't have budget." },
-  { tag: "FBL", name: "Feasibility", line: "Integration surface is bigger than the wedge. Risk: 9 months to demo." },
-  { tag: "ICP", name: "ICP", line: "Status incentive is weak. No-one shares this with their team." },
-  { tag: "RSK", name: "Risk & Failure", line: "If GitHub adds this in Q3, the company is dead in a quarter." },
-  { tag: "VAL", name: "Validation", line: "48h test: 12 paid pilots or kill it. No moral victories." },
+const ANGLES = [
+  { tag: "MKT", name: "Market reality", line: "Tier-2 willingness-to-pay is thin. Pricing assumption flagged." },
+  { tag: "CMP", name: "Competitive pressure", line: "Three incumbents already ship 70% of the wedge — for free." },
+  { tag: "REV", name: "Revenue truth", line: "Buyer is the engineer. Engineers don't have budget." },
+  { tag: "BLD", name: "Build cost", line: "Integration surface is bigger than the wedge. Risk: 9 months to demo." },
+  { tag: "ICP", name: "Buyer psychology", line: "Status incentive is weak. No-one shares this with their team." },
+  { tag: "RSK", name: "Failure modes", line: "If GitHub adds this in Q3, the company is dead in a quarter." },
+  { tag: "TST", name: "What to try", line: "48h test: 12 paid pilots or kill it. No moral victories." },
 ]
 
 const PHASE_LINES: Record<number, string[]> = {
   0: [
-    "Parsing claim surface and stripping optimism noise.",
+    "Parsing the claim surface and stripping optimism noise.",
     "Locating real buyer, real pain, real urgency.",
     "Extracting assumptions that can actually fail.",
   ],
   1: [
     "Pulling country and segment-specific market signal.",
     "Comparing willingness-to-pay against status-quo behavior.",
-    "Measuring competitor overlap and copyability risk.",
+    "Measuring competitive overlap and substitution risk.",
   ],
   2: [
-    "Contrasting reads land on the same sentences with different reads.",
+    "Different angles land on the same sentences with different readings.",
     "Disagreement stays legible — nothing averaged for comfort.",
     "Soft claims become testable because they are named plainly.",
   ],
   3: [
-    "A single ruling language is tightening — still revisable tomorrow.",
+    "A single clear frame is tightening — still revisable tomorrow.",
     "If-works / if-fails arcs are written soberly beside it.",
     "A 48-hour pressure arc attaches without moralizing hustle.",
   ],
@@ -41,12 +41,9 @@ const PHASE_LINES: Record<number, string[]> = {
 /**
  * LoadingTheatre — full-screen 4-phase reveal.
  *
- * Phases (timing in seconds, total ~28s but resolves the moment the parent
- * tells us we're done):
- *   1. Decoding   (0 → 4)
- *   2. Researching (4 → 10)
- *   3. Debating   (10 → 22)  agents drop in one-by-one
- *   4. Ruling     (22 → end) verdict is composed letter-by-letter
+ * Keeps structured dramatic pacing (decode → context → tension → frame)
+ * but removes OS-boot language. Each phase has emotional weight.
+ * The verdict reveal is still cinematic — that moment matters.
  */
 export function LoadingTheatre({
   onCancel,
@@ -58,9 +55,11 @@ export function LoadingTheatre({
   verdictHint?: "BUILD" | "PIVOT" | "KILL"
 }) {
   const reduce = useReducedMotion()
-  const [phase, setPhase] = useState(0) // 0..3
-  const [revealed, setRevealed] = useState(0) // # agents revealed
+  const [phase, setPhase] = useState(0)
+  const [revealed, setRevealed] = useState(0)
   const [phaseLineIdx, setPhaseLineIdx] = useState(0)
+
+  const barWidth = reduce ? "100%" : `${[28, 52, 76, 100][phase]}%`
 
   useEffect(() => {
     const t1 = setTimeout(() => setPhase(1), 3000)
@@ -79,7 +78,7 @@ export function LoadingTheatre({
     const id = setInterval(() => {
       i += 1
       setRevealed(i)
-      if (i >= AGENTS.length) clearInterval(id)
+      if (i >= ANGLES.length) clearInterval(id)
     }, 450)
     return () => clearInterval(id)
   }, [phase])
@@ -96,13 +95,21 @@ export function LoadingTheatre({
 
   return (
     <div className="fixed inset-0 z-50 flex flex-col bg-ink-0 text-bone-0">
-      {/* Top status bar */}
-      <header className="flex h-16 items-center justify-between border-b border-bone-0/10 px-6 md:px-10">
+      <motion.div
+        aria-hidden
+        className="absolute left-0 top-0 z-[60] h-0.5 max-w-full bg-ember/70"
+        initial={{ width: "0%" }}
+        animate={{ width: barWidth }}
+        transition={{ duration: 0.85, ease: ease.editorial }}
+      />
+
+      {/* Top bar — warm, not clinical */}
+      <header className="flex h-16 items-center justify-between border-b border-bone-0/[0.06] px-6 md:px-10">
         <div className="flex items-center gap-3">
           <span className="relative h-2 w-2">
             <motion.span
-              className="absolute inset-0 bg-bone-0"
-              animate={reduce ? undefined : { opacity: [1, 0.2, 1] }}
+              className="absolute inset-0 rounded-full bg-ember"
+              animate={reduce ? undefined : { opacity: [1, 0.3, 1] }}
               transition={{ duration: 1.6, repeat: Infinity, ease: "easeInOut" }}
             />
           </span>
@@ -121,8 +128,8 @@ export function LoadingTheatre({
         )}
       </header>
 
-      {/* Phase progress rail */}
-      <div className="grid grid-cols-4 border-b border-bone-0/10">
+      {/* Phase progress — warm accents */}
+      <div className="grid grid-cols-4 border-b border-bone-0/[0.06]">
         {microcopy.loading.phases.map((p, i) => (
           <div
             key={p.label}
@@ -130,7 +137,7 @@ export function LoadingTheatre({
               i <= phase ? "bg-bone-0/[0.02]" : "bg-transparent"
             }`}
           >
-            <div className="mono-caption tabular">
+            <div className={`mono-caption tabular ${i <= phase ? "text-ember/60" : "text-bone-2"}`}>
               {String(i + 1).padStart(2, "0")}
             </div>
             <div
@@ -140,13 +147,13 @@ export function LoadingTheatre({
             >
               {p.label}
             </div>
-            <div className="mt-3 h-px bg-bone-0/10">
+            <div className="mt-3 h-px bg-bone-0/[0.06]">
               {i <= phase && (
                 <motion.div
                   initial={{ width: "0%" }}
                   animate={{ width: i < phase ? "100%" : "62%" }}
                   transition={{ duration: i < phase ? 0.6 : 6, ease: ease.editorial }}
-                  className="h-px bg-bone-0"
+                  className="h-px bg-ember/40"
                 />
               )}
             </div>
@@ -167,8 +174,10 @@ export function LoadingTheatre({
               className="grid h-full place-items-center px-6"
             >
               <div className="max-w-[640px] text-center">
-                <p className="mono-caption mb-6">phase 01 — decode</p>
-                <p className="font-serif text-[clamp(28px,4vw,48px)] leading-snug">
+                <p className="mono-caption mb-6 text-ember/60" aria-live="polite">
+                  01 — {microcopy.loading.phases[0].label}
+                </p>
+                <p className="font-serif text-[clamp(28px,4vw,48px)] leading-snug" aria-live="polite">
                   {PHASE_LINES[0][phaseLineIdx] || microcopy.loading.phases[0].line}
                 </p>
               </div>
@@ -185,8 +194,10 @@ export function LoadingTheatre({
               className="mx-auto grid h-full max-w-[1040px] grid-cols-12 items-center gap-6 px-6"
             >
               <div className="col-span-12 md:col-span-5">
-                <p className="mono-caption mb-6">phase 02 — research</p>
-                <p className="font-serif text-[clamp(28px,3.4vw,40px)] leading-snug">
+                <p className="mono-caption mb-6 text-ember/60" aria-live="polite">
+                  02 — {microcopy.loading.phases[1].label}
+                </p>
+                <p className="font-serif text-[clamp(28px,3.4vw,40px)] leading-snug" aria-live="polite">
                   {PHASE_LINES[1][phaseLineIdx] || microcopy.loading.phases[1].line}
                 </p>
               </div>
@@ -198,16 +209,18 @@ export function LoadingTheatre({
 
           {phase === 2 && (
             <motion.section
-              key="debate"
+              key="tension"
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
               transition={{ duration: 0.4 }}
               className="mx-auto h-full max-w-[1040px] px-6 py-12"
             >
-              <p className="mono-caption mb-6">phase 03 — debate</p>
-              <ul className="divide-y divide-bone-0/[0.06] border-y border-bone-0/[0.06]">
-                {AGENTS.slice(0, revealed).map((a) => (
+              <p className="mono-caption mb-6 text-ember/60" aria-live="polite">
+                03 — {microcopy.loading.phases[2].label}
+              </p>
+              <ul className="divide-y divide-bone-0/[0.05] border-y border-bone-0/[0.05]">
+                {ANGLES.slice(0, revealed).map((a) => (
                   <motion.li
                     key={a.tag}
                     initial={{ opacity: 0, y: 10 }}
@@ -215,7 +228,7 @@ export function LoadingTheatre({
                     transition={{ duration: 0.45, ease: ease.editorial }}
                     className="grid grid-cols-[64px_140px_1fr] items-baseline gap-6 py-4"
                   >
-                    <span className="mono-caption tabular">{a.tag}</span>
+                    <span className="mono-caption tabular text-ember/40">{a.tag}</span>
                     <span className="text-[14px] text-bone-0">{a.name}</span>
                     <span className="text-[15px] leading-snug text-bone-1">
                       {a.line}
@@ -224,14 +237,14 @@ export function LoadingTheatre({
                 ))}
               </ul>
               <p className="mono-caption mt-8 text-bone-2">
-                {revealed} of 7 on record
+                {revealed} of 7 angles on record
               </p>
             </motion.section>
           )}
 
           {phase === 3 && (
             <motion.section
-              key="rule"
+              key="frame"
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
@@ -239,14 +252,16 @@ export function LoadingTheatre({
               className="grid h-full place-items-center px-6"
             >
               <div className="text-center">
-                <p className="mono-caption mb-6">phase 04 — rule</p>
+                <p className="mono-caption mb-6 text-ember/60" aria-live="polite">
+                  04 — {microcopy.loading.phases[3].label}
+                </p>
                 <VerdictReveal text={verdictHint} />
-                <p className="mt-8 font-serif text-[20px] italic text-bone-1">
+                <p className="mt-8 font-serif text-[20px] italic text-bone-1" aria-live="polite">
                   {PHASE_LINES[3][phaseLineIdx] || microcopy.loading.phases[3].line}
                 </p>
                 {finished && (
                   <p className="mono-caption mt-10 text-bone-2">
-                    Composing memo…
+                    Composing your read…
                   </p>
                 )}
               </div>
@@ -261,7 +276,7 @@ export function LoadingTheatre({
 function ResearchStream() {
   const [lines, setLines] = useState<string[]>([])
   const all = [
-    "querying competitor index — 18 hits",
+    "querying competitive landscape — 18 hits",
     "country profile: US / segment: SMB engineering",
     "willingness-to-pay distribution: bimodal",
     "incumbent overlap: 0.71 — high",
@@ -280,7 +295,7 @@ function ResearchStream() {
     return () => clearInterval(id)
   }, [])
   return (
-    <ul className="space-y-2 font-mono text-[12px] uppercase tracking-[0.06em] text-bone-1">
+    <ul className="space-y-2 font-mono text-[12px] tracking-[0.04em] text-bone-1">
       {lines.map((l, i) => (
         <motion.li
           key={i}
@@ -289,7 +304,7 @@ function ResearchStream() {
           transition={{ duration: 0.32, ease: ease.editorial }}
           className="flex gap-3"
         >
-          <span className="tabular text-bone-2">
+          <span className="tabular text-ember/30">
             {String(i + 1).padStart(2, "0")}
           </span>
           <span>{l}</span>
@@ -299,7 +314,13 @@ function ResearchStream() {
   )
 }
 
+/**
+ * VerdictReveal — the emotional weight moment.
+ * This is one of the screenshot-worthy moments. Keeps its dramatic pacing.
+ * Letters arrive with conviction. Color shifts with finality.
+ */
 function VerdictReveal({ text }: { text: string }) {
+  const reduceLetters = useReducedMotion()
   const tone =
     text === "BUILD"
       ? "text-verdict-build"
@@ -315,8 +336,17 @@ function VerdictReveal({ text }: { text: string }) {
       {text.split("").map((c, i) => (
         <motion.span
           key={i}
-          initial={{ opacity: 0, y: 32 }}
-          animate={{ opacity: 1, y: 0, color: ["rgb(245 245 242)", "rgb(245 245 242)", "currentColor"] }}
+          initial={{
+            opacity: 0,
+            y: 32,
+            filter: reduceLetters ? "blur(0px)" : "blur(6px)",
+          }}
+          animate={{
+            opacity: 1,
+            y: 0,
+            filter: "blur(0px)",
+            color: ["rgb(232 228 220)", "rgb(232 228 220)", "currentColor"],
+          }}
           transition={{ duration: 0.28, delay: 0.08 * i, ease: ease.editorial, color: { delay: toneDelay } }}
           className="inline-block"
         >

@@ -2,27 +2,31 @@
 
 import { useEffect, useMemo, useState } from "react"
 import Link from "next/link"
-import { motion } from "framer-motion"
+import { AnimatePresence, motion } from "framer-motion"
 import { useRouter } from "next/navigation"
 import { useAuth } from "@/contexts/auth-context"
 import { microcopy } from "@/lib/microcopy"
 import { ease } from "@/lib/motion"
 import { LoadingTheatre } from "@/components/loading-theatre"
+import { useChamberSettle } from "@/components/chamber"
+import { Skeleton } from "@/components/ui/skeleton"
+import { toastRateLimited } from "@/lib/verdict-toast"
 
 const MAX_PER_DAY = 2
 
 type Field = "title" | "problem" | "idea" | "market"
 
 const fields: Array<{ key: Field; label: string; gutter: string; placeholder: string }> = [
-  { key: "title", label: "01 — Title", gutter: "T", placeholder: microcopy.validate.placeholder.title },
-  { key: "problem", label: "02 — The problem on file", gutter: "P", placeholder: microcopy.validate.placeholder.problem },
-  { key: "idea", label: "03 — The proposed wedge", gutter: "I", placeholder: microcopy.validate.placeholder.idea },
-  { key: "market", label: "04 — Market & buyer", gutter: "M", placeholder: microcopy.validate.placeholder.market },
+  { key: "title", label: "01 — One-liner", gutter: "T", placeholder: microcopy.validate.placeholder.title },
+  { key: "problem", label: "02 — Problem", gutter: "P", placeholder: microcopy.validate.placeholder.problem },
+  { key: "idea", label: "03 — Wedge / solution", gutter: "I", placeholder: microcopy.validate.placeholder.idea },
+  { key: "market", label: "04 — Buyer / market", gutter: "M", placeholder: microcopy.validate.placeholder.market },
 ]
 
 export default function ValidatePage() {
   const router = useRouter()
   const { user, loading } = useAuth()
+  useChamberSettle()
 
   const [data, setData] = useState<Record<Field, string>>({
     title: "",
@@ -137,6 +141,7 @@ export default function ValidatePage() {
         }
         if (res.status === 429) {
           setError(microcopy.validate.errors.rateLimit)
+          toastRateLimited(microcopy.validate.errors.rateLimit)
           setRetryable(false)
         } else if (res.status === 408 || res.status === 504) {
           setError(microcopy.validate.errors.timeout)
@@ -162,12 +167,31 @@ export default function ValidatePage() {
         return
       }
 
+      let nextHref = "/dashboard/validate/results"
+      try {
+        const persist = await fetch("/api/validation-run", {
+          method: "POST",
+          credentials: "same-origin",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            idea_id: json.idea_id,
+            validation_results: json.validation_results,
+          }),
+        })
+        if (persist.ok) {
+          const p = (await persist.json().catch(() => null)) as { runId?: string } | null
+          if (p?.runId) {
+            nextHref = `/dashboard/validate/results?run=${encodeURIComponent(p.runId)}`
+          }
+        }
+      } catch {}
+
       try {
         localStorage.setItem("validationResults", JSON.stringify(json.validation_results))
         localStorage.setItem("ideaId", json.idea_id)
       } catch {}
 
-      router.push("/dashboard/validate/results")
+      router.push(nextHref)
     } catch (e) {
       setError(e instanceof Error ? e.message : microcopy.validate.errors.network)
       setRetryable(true)
@@ -178,12 +202,23 @@ export default function ValidatePage() {
   if (loading || !user) {
     return (
       <div className="min-h-screen bg-ink-0 text-bone-0">
-        <main className="grid h-[60vh] place-items-center">
-          <span className="mono-caption tabular text-bone-2">verifying identity…</span>
+        <main className="mx-auto max-w-[860px] px-6 py-28 md:px-10 md:py-36">
+          <div className="space-y-6">
+            <Skeleton className="h-8 w-[55%] max-w-[480px] bg-bone-0/[0.06]" />
+            <Skeleton className="h-36 w-full bg-bone-0/[0.05]" />
+            <Skeleton className="h-24 w-full bg-bone-0/[0.04]" />
+          </div>
         </main>
       </div>
     )
   }
+
+  const fieldFill = fields.map((f) => ({
+    ...f,
+    done:
+      (f.key === "title" && data.title.trim().length >= 3) ||
+      (f.key !== "title" && data[f.key].trim().length >= 8),
+  }))
 
   const used = usage?.used ?? 0
   const limit = usage?.limit ?? MAX_PER_DAY
@@ -209,7 +244,7 @@ export default function ValidatePage() {
               className={`tab-cta ${(!ready || submitting || limitReached) ? "pointer-events-none opacity-40" : ""}`}
             >
               <span className="hidden sm:inline">{submitting ? microcopy.validate.submitting : microcopy.validate.submit}</span>
-              <span className="sm:hidden">{submitting ? "Filing…" : "File"}</span>
+              <span className="sm:hidden">{submitting ? microcopy.validate.submitting : "Run"}</span>
               <span className="tab-cta-arrow">→</span>
             </button>
           </div>
@@ -221,10 +256,22 @@ export default function ValidatePage() {
           initial={{ opacity: 0, y: 8 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.5, ease: ease.editorial }}
-          className="mono-caption mb-6"
+          className="mono-caption mb-6 flex flex-wrap items-center gap-x-3 gap-y-1"
         >
           {microcopy.validate.eyebrow} · {new Date().toISOString().slice(0, 10)} · {user.email || "session"}
         </motion.p>
+
+        <div className="mb-12 flex gap-3" aria-label="Field progress">
+          {fieldFill.map((f) => (
+            <span
+              key={f.key}
+              className={`h-2 w-2 rounded-full transition-colors duration-300 ${
+                f.done ? "bg-ember" : "bg-bone-0/15"
+              }`}
+              title={f.label}
+            />
+          ))}
+        </div>
 
         <motion.h1
           initial={{ opacity: 0, y: 12 }}
@@ -323,8 +370,19 @@ export default function ValidatePage() {
         )}
 
         <div className="mt-16 flex flex-col items-start justify-between gap-6 border-t border-bone-0/[0.06] pt-8 md:flex-row md:items-center">
-          <div className="mono-caption tabular text-bone-2">
-            {totalChars.toLocaleString()} chars on the page · {ready ? "ready" : "needs more substance"}
+          <div className="mono-caption tabular inline-flex flex-wrap gap-x-1 text-bone-2">
+            <span>{totalChars.toLocaleString()} chars on the page ·</span>
+            <AnimatePresence mode="wait" initial={false}>
+              <motion.span
+                key={ready ? "ready" : "more"}
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                transition={{ duration: 0.28, ease: ease.editorial }}
+              >
+                {ready ? "ready" : "needs more substance"}
+              </motion.span>
+            </AnimatePresence>
           </div>
           <button
             type="button"

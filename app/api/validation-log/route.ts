@@ -1,5 +1,6 @@
 import { type NextRequest, NextResponse } from "next/server"
 import { z } from "zod"
+import { getAuthSession } from "@/lib/auth"
 import { fdsAppendValidationLog, fdsListValidationLogs } from "@/lib/founder-workflow/server-store"
 
 const PostBodySchema = z.object({
@@ -12,6 +13,12 @@ const PostBodySchema = z.object({
 
 export async function POST(request: NextRequest) {
   try {
+    const session = await getAuthSession()
+    const uid = session?.user?.id
+    if (!uid) {
+      return NextResponse.json({ success: false, error: "Sign-in required.", code: "AUTH_REQUIRED" }, { status: 401 })
+    }
+
     const raw = await request.json()
     const parsed = PostBodySchema.safeParse(raw)
     if (!parsed.success) {
@@ -20,7 +27,7 @@ export async function POST(request: NextRequest) {
         { status: 400 },
       )
     }
-    const { ok, record } = await fdsAppendValidationLog(parsed.data)
+    const { ok, record } = await fdsAppendValidationLog(uid, parsed.data)
     return NextResponse.json({ success: true, persisted: ok, log: record })
   } catch (e) {
     console.error("POST /api/validation-log", e)
@@ -30,11 +37,17 @@ export async function POST(request: NextRequest) {
 
 export async function GET(request: NextRequest) {
   try {
+    const session = await getAuthSession()
+    const uid = session?.user?.id
+    if (!uid) {
+      return NextResponse.json({ success: false, error: "Sign-in required.", code: "AUTH_REQUIRED" }, { status: 401 })
+    }
+
     const ideaId = request.nextUrl.searchParams.get("ideaId")
     if (!ideaId?.trim()) {
       return NextResponse.json({ success: false, error: "Missing ideaId" }, { status: 400 })
     }
-    const logs = await fdsListValidationLogs(ideaId.trim())
+    const logs = await fdsListValidationLogs(uid, ideaId.trim())
     return NextResponse.json({ success: true, logs })
   } catch (e) {
     console.error("GET /api/validation-log", e)

@@ -3,19 +3,23 @@
 import type React from "react"
 import { Suspense, useEffect, useMemo, useState } from "react"
 import Link from "next/link"
+import Balancer from "react-wrap-balancer"
 import { motion, AnimatePresence } from "framer-motion"
 import { useRouter, useSearchParams } from "next/navigation"
 import { useAuth } from "@/contexts/auth-context"
 import { ease } from "@/lib/motion"
+import { microcopy } from "@/lib/microcopy"
 
 type Tab = "in" | "up"
 
+const VERDICTS = [
+  { tag: "BUILD" as const, sub: "Looks worth testing next." },
+  { tag: "PIVOT" as const, sub: "Right problem — reshape the wedge." },
+  { tag: "KILL" as const, sub: "Pause or drop as stated." },
+]
+
 /**
- * AuthPage — single-column editorial intake.
- *
- * Two modes (sign in / sign up) sit on a hairline-ruled stack. Errors are
- * Errors stay direct without dramatic chrome.
- * No card chrome, no glow, no gradients.
+ * AuthPage — split-panel sign-in: brand left, controls right.
  */
 export default function AuthPage() {
   return (
@@ -26,19 +30,31 @@ export default function AuthPage() {
 }
 
 function AuthPageContent() {
-  const { signIn, signUp, signInWithGoogle, user, loading } = useAuth()
+  const { signIn, signUp, signInWithGoogle, user, loading, authConfigured } = useAuth()
   const router = useRouter()
   const search = useSearchParams()
   const next = useMemo(() => {
     const raw = search?.get("next") || "/dashboard"
-    // Allow only same-origin paths to prevent open-redirects.
     return raw.startsWith("/") ? raw : "/dashboard"
   }, [search])
 
-  const [tab, setTab] = useState<Tab>("up") // default to sign-up — conversion bias
+  const [tab, setTab] = useState<Tab>("up")
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [success, setSuccess] = useState<string | null>(null)
+  const [verdictIdx, setVerdictIdx] = useState(0)
+
+  useEffect(() => {
+    const id = setInterval(() => setVerdictIdx((i) => (i + 1) % VERDICTS.length), 4800)
+    return () => clearInterval(id)
+  }, [])
+
+  useEffect(() => {
+    const err = search?.get("error")
+    if (err === "auth") {
+      setError(microcopy.auth.oauthError)
+    }
+  }, [search])
 
   useEffect(() => {
     if (user && !loading) {
@@ -62,7 +78,7 @@ function AuthPageContent() {
     const result = await signIn(email, password)
     if (result.error) setError(result.error)
     else {
-      setSuccess("Routing to your workspace.")
+      setSuccess("Opening your workspace.")
       setTimeout(() => router.push(next), 600)
     }
     setSubmitting(false)
@@ -108,94 +124,114 @@ function AuthPageContent() {
     setSubmitting(false)
   }
 
+  const vtone =
+    VERDICTS[verdictIdx].tag === "BUILD"
+      ? "text-verdict-build"
+      : VERDICTS[verdictIdx].tag === "KILL"
+      ? "text-verdict-kill"
+      : "text-verdict-pivot"
+
   return (
     <div className="min-h-screen bg-ink-0 text-bone-0">
-      {/* Top brand strip */}
-      <header className="border-b border-bone-0/[0.06]">
-        <div className="mx-auto flex h-16 max-w-[1200px] items-center justify-between px-6 md:px-10">
-          <Link href="/" className="flex items-center gap-3" data-cursor="cite">
-            <span className="h-2 w-2 bg-bone-0" />
-            <span className="mono-caption text-bone-0">
-              Future<span className="text-bone-1">/</span>Validate
-            </span>
+      <header className="border-b border-bone-0/[0.04]">
+        <div className="mx-auto flex h-16 max-w-[1320px] items-center justify-between px-6 md:px-10">
+          <Link href="/" className="flex items-center gap-3">
+            <span className="h-2 w-2 rounded-full bg-ember/90" />
+            <span className="mono-caption text-bone-0">{microcopy.brand.name}</span>
           </Link>
           <Link href="/" className="mono-caption text-bone-2 hover:text-bone-0">
-            ← marketing
+            ← home
           </Link>
         </div>
       </header>
 
-      <main className="mx-auto grid max-w-[1200px] grid-cols-1 gap-12 px-6 pt-20 pb-32 md:grid-cols-12 md:gap-16 md:px-10">
+      <main className="mx-auto grid max-w-[1320px] grid-cols-1 md:grid-cols-2 md:gap-px md:bg-bone-0/[0.08] lg:min-h-[calc(100vh-64px)]">
         <motion.section
           initial={{ opacity: 0, y: 12 }}
           animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.6, ease: ease.editorial }}
-          className="md:col-span-5"
+          transition={{ duration: 0.65, ease: ease.editorial }}
+          className="relative flex flex-col justify-between bg-ink-0 px-6 py-14 md:border-b-0 md:px-10 md:py-24"
         >
-          <h1 className="font-serif text-[clamp(36px,4.5vw,56px)] leading-[1.05] tracking-[-0.025em]">
-            {tab === "in" ? "Welcome back." : "Begin here."}
-          </h1>
-          <p className="mt-6 max-w-[420px] text-[16px] leading-[1.6] text-bone-1">
-            {tab === "in"
-              ? "Sign in to continue. Your memos and reflections are waiting."
-              : "Sixty seconds. No card. Your first memo files immediately."}
-          </p>
-          <ul className="mt-8 space-y-3 text-[14px] leading-snug text-bone-1">
-            {[
-              "Two memos per day. Deliberately paced.",
-              "Seven specialist reads and a single decision frame.",
-              "Your private archive of decisions and learnings.",
-            ].map((point) => (
-              <li key={point} className="flex gap-3">
-                <span className="select-none text-bone-2">—</span>
-                <span>{point}</span>
-              </li>
-            ))}
-          </ul>
+          <div className="max-w-[480px]">
+            <p className="marketing-label">{microcopy.brand.name}</p>
+            <h1 className="marketing-display mt-6">
+              <Balancer>{microcopy.brand.tagline}</Balancer>
+            </h1>
+            <p className="marketing-body mt-8 text-bone-1">{microcopy.brand.promise}</p>
 
-          <div className="mt-10 inline-flex border border-bone-0/10">
-            <TabButton active={tab === "in"} onClick={() => setTab("in")}>
-              Sign in
-            </TabButton>
-            <TabButton active={tab === "up"} onClick={() => setTab("up")}>
-              Open account
-            </TabButton>
+            <div className="relative mt-20 min-h-[200px]">
+              <div className="absolute inset-x-0 top-0 h-px bg-bone-0/[0.08]" aria-hidden />
+              <AnimatePresence mode="wait">
+                <motion.div
+                  key={VERDICTS[verdictIdx].tag}
+                  initial={{ opacity: 0, y: 10, filter: "blur(8px)" }}
+                  animate={{ opacity: 1, y: 0, filter: "blur(0px)" }}
+                  exit={{ opacity: 0, y: -6, filter: "blur(6px)" }}
+                  transition={{ duration: 0.42, ease: ease.editorial }}
+                  className="pt-14"
+                  aria-live="polite"
+                >
+                  <p className="mono-caption text-bone-2">Sample verdict band</p>
+                  <div className={`mt-4 font-sans text-[clamp(48px,11vw,120px)] font-semibold leading-none tracking-[-0.04em] ${vtone}`}>
+                    {VERDICTS[verdictIdx].tag}
+                  </div>
+                  <p className="mt-6 font-serif text-[17px] leading-relaxed italic text-bone-1">
+                    {VERDICTS[verdictIdx].sub}
+                  </p>
+                </motion.div>
+              </AnimatePresence>
+
+              <p className="mono-caption mt-12 text-bone-2">{microcopy.auth.socialProof}</p>
+            </div>
           </div>
+
+          <p className="mono-caption mt-16 max-w-[400px] text-bone-2 md:mt-0">
+            Structured memos · seven fixed angles · no chat thread theatrics.
+          </p>
         </motion.section>
 
         <motion.section
           initial={{ opacity: 0, y: 12 }}
           animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.7, delay: 0.1, ease: ease.editorial }}
-          className="md:col-span-7"
+          transition={{ duration: 0.72, delay: 0.08, ease: ease.editorial }}
+          className="flex flex-col justify-center bg-ink-0 px-6 py-14 md:border-b-0 md:px-10 md:py-24 lg:py-28"
         >
-          <div className="border border-bone-0/10 bg-ink-1 p-8 md:p-10">
+          <div className="warm-surface rounded-sm border border-bone-0/[0.06] p-8 md:p-10">
+            <h2 className="font-serif text-[clamp(26px,3vw,40px)] font-light tracking-[-0.02em] text-bone-0">
+              {tab === "in" ? "Sign in" : "Open an account"}
+            </h2>
+            <p className="marketing-body mt-4 max-w-[420px] text-bone-1">
+              {tab === "in"
+                ? "Continue where your memos stopped — same template every rerun."
+                : "No card on signup. First memo opens when you're ready."}
+            </p>
+
+            <div className="mt-8 inline-flex rounded-sm border border-bone-0/[0.06] overflow-hidden">
+              <TabButton active={tab === "in"} onClick={() => setTab("in")}>
+                Sign in
+              </TabButton>
+              <TabButton active={tab === "up"} onClick={() => setTab("up")}>
+                Open account
+              </TabButton>
+            </div>
+            {!authConfigured ? (
+              <div className="mt-8 rounded-sm border border-dusk/30 bg-dusk/[0.06] px-4 py-3 text-[13px] text-bone-0">
+                {microcopy.auth.configBanner}
+              </div>
+            ) : null}
             <button
               type="button"
               onClick={handleGoogle}
               disabled={submitting}
-              className="flex w-full items-center justify-between border border-bone-0/10 px-4 py-3 text-left transition-colors hover:border-bone-0/40"
-              data-cursor="file"
+              className="flex w-full items-center justify-between rounded-sm border border-bone-0/[0.08] px-4 py-3 text-left transition-colors hover:border-bone-0/25 hover:bg-bone-0/[0.02]"
             >
               <span className="flex items-center gap-3">
-                <span className="grid h-5 w-5 place-items-center bg-bone-0">
-                  <svg width="11" height="11" viewBox="0 0 24 24">
-                    <path
-                      fill="rgb(6,7,10)"
-                      d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"
-                    />
-                    <path
-                      fill="rgb(6,7,10)"
-                      d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"
-                    />
-                    <path
-                      fill="rgb(6,7,10)"
-                      d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"
-                    />
-                    <path
-                      fill="rgb(6,7,10)"
-                      d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"
-                    />
+                <span className="grid h-9 w-9 shrink-0 place-items-center rounded-md bg-white shadow-sm ring-1 ring-bone-0/[0.1]">
+                  <svg width="18" height="18" viewBox="0 0 48 48" aria-hidden>
+                    <path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.21 17.74 9.5 24 9.5z"/>
+                    <path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6C44.21 37.01 46.98 31.28 46.98 24.55z"/>
+                    <path fill="#FBBC05" d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z"/>
+                    <path fill="#34A853" d="M24 46c6.48 0 11.92-2.13 15.89-5.81l-7.73-6c-2.15 1.45-4.92 2.3-8.16 2.3-6.26 0-11.57-3.71-13.47-8.98l-7.98 6.19C6.51 42.62 14.62 48 24 48z"/>
                   </svg>
                 </span>
                 <span className="text-[15px] text-bone-0">Continue with Google</span>
@@ -204,9 +240,9 @@ function AuthPageContent() {
             </button>
 
             <div className="my-8 flex items-center gap-4">
-              <span className="h-px flex-1 bg-bone-0/10" />
+              <span className="h-px flex-1 bg-bone-0/[0.06]" />
               <span className="mono-caption text-bone-2">or use email</span>
-              <span className="h-px flex-1 bg-bone-0/10" />
+              <span className="h-px flex-1 bg-bone-0/[0.06]" />
             </div>
 
             <AnimatePresence mode="wait">
@@ -252,10 +288,10 @@ function AuthPageContent() {
               <motion.div
                 initial={{ opacity: 0, y: 6 }}
                 animate={{ opacity: 1, y: 0 }}
-                className="mt-6 border-l-2 border-bone-0/20 bg-ink-1/40 px-4 py-3"
+                className="mt-6 rounded-sm border-l-2 border-ash/40 bg-ash/[0.06] px-4 py-3"
                 role="alert"
               >
-                <span className="mono-caption text-bone-2">Could not complete</span>
+                <span className="mono-caption text-ash/80">Could not complete</span>
                 <p className="mt-1 text-[14px] text-bone-0">{error}</p>
               </motion.div>
             )}
@@ -263,16 +299,16 @@ function AuthPageContent() {
               <motion.div
                 initial={{ opacity: 0, y: 6 }}
                 animate={{ opacity: 1, y: 0 }}
-                className="mt-6 border-l-2 border-bone-0/25 bg-ink-1/30 px-4 py-3"
+                className="mt-6 rounded-sm border-l-2 border-sage/40 bg-sage/[0.06] px-4 py-3"
               >
-                <span className="mono-caption text-bone-0">You're in</span>
+                <span className="mono-caption text-sage/80">You're in</span>
                 <p className="mt-1 text-[14px] text-bone-0">{success}</p>
               </motion.div>
             )}
           </div>
 
           <p className="mono-caption mt-6 text-bone-2">
-            Sign-in stays private — we use sessions only for your ledger and memos on file.
+            Sign-in stays private — sessions only tie you to saved memos and settings.
           </p>
         </motion.section>
       </main>
@@ -296,7 +332,6 @@ function TabButton({
       className={`mono-caption px-4 py-2 transition-colors duration-200 ${
         active ? "bg-bone-0 text-ink-0" : "text-bone-1 hover:text-bone-0"
       }`}
-      data-cursor="read"
     >
       {children}
     </button>
@@ -327,7 +362,7 @@ function Field({
         type={type}
         autoComplete={autoComplete}
         required
-        className="w-full border-0 border-b border-bone-0/10 bg-transparent py-3 text-[16px] text-bone-0 placeholder:text-bone-2 focus:border-bone-0 focus:outline-none"
+        className="w-full border-0 border-b border-bone-0/[0.08] bg-transparent py-3 text-[16px] text-bone-0 placeholder:text-bone-2 focus:border-ember/40 focus:outline-none transition-colors duration-200"
       />
     </label>
   )
@@ -339,9 +374,8 @@ function Submit({ submitting, label }: { submitting: boolean; label: string }) {
       type="submit"
       disabled={submitting}
       className={`tab-cta ${submitting ? "pointer-events-none opacity-50" : ""}`}
-      data-cursor="file"
     >
-      <span>{submitting ? "Filing…" : label}</span>
+      <span>{submitting ? "Opening…" : label}</span>
       <span className="tab-cta-arrow">→</span>
     </button>
   )

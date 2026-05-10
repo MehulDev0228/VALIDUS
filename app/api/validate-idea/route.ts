@@ -8,6 +8,7 @@ import {
   getClientIpFromRequest,
   buildRateLimitKey,
 } from "@/lib/rate-limit"
+import { userHasUnlimitedMemos } from "@/lib/services/billing"
 
 export async function POST(request: NextRequest) {
   try {
@@ -61,17 +62,21 @@ export async function POST(request: NextRequest) {
     // for anonymous calls, but anonymous calls are rejected above.
     const ip = getClientIpFromRequest(request as any)
     const rateKey = buildRateLimitKey({ userId, ip, fingerprint })
-    if (!(await canConsumeFreeValidation(rateKey))) {
-      return NextResponse.json(
-        {
-          success: false,
-          error: "Daily limit reached (2 memos/day). The judges sleep. Come back tomorrow sharper.",
-          code: "RATE_LIMIT",
-        },
-        { status: 429 },
-      )
+    const unlimited = await userHasUnlimitedMemos(userId)
+    if (!unlimited) {
+      if (!(await canConsumeFreeValidation(rateKey))) {
+        return NextResponse.json(
+          {
+            success: false,
+            error:
+              "Daily limit reached (2 memo runs). Resets midnight UTC — tighten the brief and try tomorrow.",
+            code: "RATE_LIMIT",
+          },
+          { status: 429 },
+        )
+      }
+      await recordFreeValidation(rateKey)
     }
-    await recordFreeValidation(rateKey)
 
     const cached = getCachedFreeValidation(idea)
     const idea_id = `idea_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`

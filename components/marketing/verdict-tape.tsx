@@ -169,11 +169,11 @@ export function VerdictTape() {
   return (
     <section
       data-section="tape"
-      aria-label="Recent verdicts"
-      className="relative border-b border-bone-0/[0.06] py-10"
+      aria-label="Recent reads"
+      className="relative border-b border-bone-0/[0.04] py-10"
     >
       <div className="mx-auto mb-6 flex max-w-[1440px] items-center justify-between px-6 md:px-10">
-        <p className="mono-caption">{microcopy.tape.eyebrow}</p>
+        <p className="mono-caption text-ember/60">{microcopy.tape.eyebrow}</p>
         <p className="mono-caption hidden text-bone-2 md:block">drag to scrub · move to scroll</p>
       </div>
       <div
@@ -204,7 +204,7 @@ function SampleCard({ s }: { s: Sample }) {
       ? "text-verdict-pivot"
       : "text-verdict-kill"
   return (
-    <div className="flex w-[420px] shrink-0 items-start gap-5 border-l border-bone-0/[0.08] pl-6">
+    <div className="flex w-[420px] shrink-0 items-start gap-5 border-l border-bone-0/[0.06] pl-6 transition-colors hover:bg-bone-0/[0.02]">
       <span className={`font-sans text-[28px] font-semibold leading-none tracking-[-0.03em] ${tone}`}>{s.verdict}</span>
       <div className="min-w-0 flex-1">
         <div className="mono-caption mb-1 flex items-center gap-3">

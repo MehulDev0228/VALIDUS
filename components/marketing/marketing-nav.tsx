@@ -1,347 +1,182 @@
 "use client"
 
+import type { ReactNode } from "react"
 import { useEffect, useRef, useState } from "react"
 import Link from "next/link"
-import { motion, AnimatePresence, useReducedMotion } from "framer-motion"
+import { motion, useMotionValueEvent, useScroll } from "framer-motion"
+import {
+  Drawer,
+  DrawerClose,
+  DrawerContent,
+  DrawerHeader,
+  DrawerTitle,
+  DrawerTrigger,
+} from "@/components/ui/drawer"
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu"
 import { microcopy } from "@/lib/microcopy"
-import { ease } from "@/lib/motion"
+import { ease, spring } from "@/lib/motion"
+import { cn } from "@/lib/utils"
 
 /**
- * MarketingNav
- *
- * Live counter is a tabular odometer (per-digit flip). Every ~14s it briefly
- * swaps the counter caption for a forensic "+1 BUILD/PIVOT/KILL" ticker in
- * the verdict tone, then snaps back. The bottom verdict-pulse rule glides
- * across the viewport every ~6s (CSS-only) for a subtle proof-of-life.
+ * Floating glass pill — hides on scroll down, returns on scroll up.
  */
 export function MarketingNav() {
-  const [scrolled, setScrolled] = useState(false)
-  const [open, setOpen] = useState(false)
-  const [counter, setCounter] = useState(0)
-  const [flash, setFlash] = useState<null | { v: "BUILD" | "PIVOT" | "KILL" }>(null)
-  const reduce = useReducedMotion()
+  const [hidden, setHidden] = useState(false)
+  const lastY = useRef(0)
+  const { scrollY } = useScroll()
 
-  useEffect(() => {
-    const onScroll = () => setScrolled(window.scrollY > 24)
-    onScroll()
-    window.addEventListener("scroll", onScroll, { passive: true })
-    return () => window.removeEventListener("scroll", onScroll)
-  }, [])
-
-  // Counter — deterministic seed so it doesn't reshuffle on rerender.
-  useEffect(() => {
-    const seed = new Date()
-    const base = (127 + seed.getUTCHours() * 11 + Math.floor(seed.getUTCMinutes() * 0.6)) | 0
-    setCounter(base)
-    const id = setInterval(() => {
-      setCounter((c) => c + (Math.random() < 0.45 ? 1 : 0))
-    }, 8500)
-    return () => clearInterval(id)
-  }, [])
-
-  // Verdict ticker — fires every 14s, pauses for 1.6s, then snaps back.
-  useEffect(() => {
-    if (reduce) return
-    const verdicts: Array<"BUILD" | "PIVOT" | "KILL"> = ["BUILD", "PIVOT", "KILL"]
-    let alive = true
-    const fire = () => {
-      if (!alive) return
-      const v = verdicts[Math.floor(Math.random() * verdicts.length)]
-      setCounter((c) => c + 1)
-      setFlash({ v })
-      window.setTimeout(() => {
-        if (alive) setFlash(null)
-      }, 1600)
+  useMotionValueEvent(scrollY, "change", (y) => {
+    const prev = lastY.current
+    lastY.current = y
+    if (y < 56) {
+      setHidden(false)
+      return
     }
-    const id = window.setInterval(fire, 14000)
-    return () => {
-      alive = false
-      clearInterval(id)
-    }
-  }, [reduce])
+    if (y > prev + 6) setHidden(true)
+    else if (y < prev - 6) setHidden(false)
+  })
 
-  const counterStr = String(counter).padStart(3, "0")
+  const [drawerOpen, setDrawerOpen] = useState(false)
+
+  useEffect(() => {
+    lastY.current = typeof window !== "undefined" ? window.scrollY : 0
+  }, [])
 
   return (
-    <header
-      className={`fixed inset-x-0 top-0 z-50 transition-colors duration-500 ${
-        scrolled ? "bg-ink-0/80 backdrop-blur-xl" : "bg-transparent"
-      }`}
-      style={{ transitionTimingFunction: "cubic-bezier(0.32, 0.72, 0, 1)" }}
+    <motion.header
+      initial={false}
+      animate={{
+        y: hidden ? -100 : 0,
+        opacity: hidden ? 0 : 1,
+      }}
+      transition={{ duration: 0.35, ease: ease.editorial }}
+      className="pointer-events-none fixed inset-x-0 top-0 z-50 flex justify-center px-4 pt-5 md:px-6"
     >
-      <div className="mx-auto flex h-16 max-w-[1440px] items-center justify-between px-6 md:px-10">
-        <Link href="/" aria-label="FutureValidate — home" className="group flex items-center gap-3" data-cursor="cite">
-          <span className="relative flex h-2.5 w-2.5">
-            <span className="absolute inset-0 rounded-full bg-bone-0/40" />
-            <motion.span
-              className="absolute inset-0 rounded-full bg-bone-0"
-              animate={reduce ? undefined : { opacity: [0.4, 0.9, 0.4] }}
-              transition={{ duration: 4, repeat: Infinity, ease: "easeInOut" }}
-            />
-          </span>
-          <span className="font-mono text-[11px] uppercase tracking-[0.18em] text-bone-0">
-            Future<span className="text-bone-1">/</span>Validate
-          </span>
-        </Link>
-
-        <div className="hidden items-center gap-3 md:flex" aria-live="polite">
-          <span className="mono-caption tabular flex items-center gap-2 text-bone-1">
-            <span className="relative inline-flex">
-              <DigitOdometer value={counterStr} />
+      <div className="pointer-events-auto glass-nav-pill mx-auto flex w-full max-w-[min(1040px,calc(100vw-2rem))] items-center justify-between gap-3 px-4 py-2.5 md:gap-6 md:px-6">
+        <motion.div
+          className="inline-flex shrink-0"
+          whileHover={{ scale: 1.03 }}
+          transition={spring.magnetic}
+        >
+          <Link href="/" aria-label="VERDIKT — home" className="flex items-center gap-2">
+            <span className="block h-1.5 w-1.5 shrink-0 rounded-full bg-ember shadow-[0_0_12px_rgb(6_182_212_/_0.5)]" />
+            <span className="font-display text-[13px] font-semibold tracking-tight text-bone-0">
+              {microcopy.brand.name}
             </span>
-            <AnimatePresence mode="wait">
-              {flash ? (
-                <motion.span
-                  key={`flash-${flash.v}`}
-                  initial={{ opacity: 0, y: -4 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  exit={{ opacity: 0, y: 4 }}
-                  transition={{ duration: 0.32, ease: ease.editorial }}
-                  className={
-                    flash.v === "BUILD"
-                      ? "text-verdict-build"
-                      : flash.v === "PIVOT"
-                      ? "text-verdict-pivot"
-                      : "text-verdict-kill"
-                  }
-                >
-                  +1 {flash.v}
-                </motion.span>
-              ) : (
-                <motion.span
-                  key="label"
-                  initial={{ opacity: 0, y: -4 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  exit={{ opacity: 0, y: 4 }}
-                  transition={{ duration: 0.28, ease: ease.editorial }}
-                >
-                  {microcopy.nav.counter}
-                </motion.span>
-              )}
-            </AnimatePresence>
-          </span>
-        </div>
-
-        <nav className="hidden items-center gap-6 md:flex">
-          <SystemFlyout />
-          <Link
-            href="/alpha"
-            className="font-mono text-[11px] uppercase tracking-[0.16em] text-bone-1 transition-colors duration-200 hover:text-bone-0"
-            data-cursor="read"
-          >
-            {microcopy.nav.alphaShort}
           </Link>
-          <ValidateCta />
+        </motion.div>
+
+        <nav className="hidden flex-1 items-center justify-center gap-1 lg:flex">
+          <NavLink href="#features-bento">Product</NavLink>
+          <NavLink href="#how-it-works">Workflow</NavLink>
+          <NavLink href="#sample-memo">Sample</NavLink>
+          <DropdownMenu>
+            <DropdownMenuTrigger
+              className={cn(
+                "rounded-full px-3 py-2 text-[13px] font-medium text-bone-2 transition-colors hover:bg-white/[0.06] hover:text-bone-0",
+                "outline-none focus-visible:ring-2 focus-visible:ring-ember/35",
+              )}
+            >
+              {microcopy.nav.secondary} ▾
+            </DropdownMenuTrigger>
+            <DropdownMenuContent
+              align="center"
+              sideOffset={12}
+              className="rounded-xl border border-white/[0.08] bg-ink-1/95 p-5 text-bone-0 shadow-2xl shadow-black/40 backdrop-blur-xl"
+            >
+              <p className="marketing-label mb-4 text-[10px] text-bone-2">Stages</p>
+              <div className="space-y-3">
+                {microcopy.system.stages.map((s) => (
+                  <Link
+                    key={s.n}
+                    href="#how-it-works"
+                    className="block rounded-lg border border-transparent px-2 py-2 transition-colors hover:border-white/[0.08] hover:bg-white/[0.04]"
+                  >
+                    <span className="font-display text-[11px] font-semibold text-ember/90">{s.n}</span>
+                    <div className="mt-1 text-[14px] font-medium">{s.title}</div>
+                  </Link>
+                ))}
+              </div>
+            </DropdownMenuContent>
+          </DropdownMenu>
+          <NavLink href="/product/more">{microcopy.nav.examplesDeep}</NavLink>
+          <NavLink href="/alpha">{microcopy.nav.earlyAccess}</NavLink>
         </nav>
 
-        <button
-          type="button"
-          aria-expanded={open}
-          aria-label={open ? microcopy.nav.mobileMenuClose : microcopy.nav.mobileMenuOpen}
-          onClick={() => setOpen((v) => !v)}
-          className="relative h-10 w-10 md:hidden"
-        >
-          <span
-            className={`absolute left-2 right-2 top-[18px] h-px bg-bone-0 transition-transform duration-300 ${
-              open ? "translate-y-[3px] rotate-45" : ""
-            }`}
-          />
-          <span
-            className={`absolute left-2 right-2 top-[24px] h-px bg-bone-0 transition-transform duration-300 ${
-              open ? "-translate-y-[3px] -rotate-45" : ""
-            }`}
-          />
-        </button>
-      </div>
-
-      <div className="verdict-pulse-track h-px w-full bg-bone-0/[0.06]" />
-
-      <AnimatePresence>
-        {open && (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            transition={{ duration: 0.32, ease: ease.editorial }}
-            className="fixed inset-0 z-40 bg-ink-0 md:hidden"
+        <div className="hidden shrink-0 items-center gap-2 lg:flex">
+          <Link
+            href="/auth?next=/dashboard/validate"
+            className="tab-cta tab-cta-warm rounded-full border-ember/35 px-4 py-2"
           >
-            <div className="flex h-full flex-col px-6 pt-24 pb-10">
-              <div className="space-y-8">
+            <span>{microcopy.nav.cta}</span>
+            <span className="tab-cta-arrow">→</span>
+          </Link>
+        </div>
+
+        <Drawer open={drawerOpen} onOpenChange={setDrawerOpen}>
+          <DrawerTrigger asChild>
+            <button
+              type="button"
+              aria-label={microcopy.nav.mobileMenuOpen}
+              className="rounded-full p-2 text-bone-0 lg:hidden"
+            >
+              <span className="block h-0.5 w-5 bg-bone-0" />
+              <span className="mt-1.5 block h-0.5 w-5 bg-bone-0" />
+            </button>
+          </DrawerTrigger>
+          <DrawerContent className="border-white/[0.08] bg-ink-1 text-bone-0">
+            <DrawerHeader className="text-left">
+              <DrawerTitle className="font-display text-xl font-semibold">{microcopy.brand.name}</DrawerTitle>
+            </DrawerHeader>
+            <nav className="flex flex-col gap-1 px-4 pb-10">
+              <DrawerClose asChild>
+                <Link href="#features-bento" className="rounded-lg px-3 py-3 text-lg font-medium">
+                  Product
+                </Link>
+              </DrawerClose>
+              <DrawerClose asChild>
+                <Link href="#how-it-works" className="rounded-lg px-3 py-3 text-lg font-medium">
+                  Workflow
+                </Link>
+              </DrawerClose>
+              <DrawerClose asChild>
+                <Link href="/product/more" className="rounded-lg px-3 py-3 text-lg">
+                  {microcopy.nav.examplesDeep}
+                </Link>
+              </DrawerClose>
+              <DrawerClose asChild>
+                <Link href="/alpha" className="rounded-lg px-3 py-3 text-lg">
+                  {microcopy.nav.earlyAccess}
+                </Link>
+              </DrawerClose>
+              <DrawerClose asChild>
                 <Link
                   href="/auth?next=/dashboard/validate"
-                  onClick={() => setOpen(false)}
-                  className="block font-serif text-[44px] leading-none tracking-tight"
+                  className="mt-4 inline-flex rounded-full tab-cta tab-cta-warm px-5 py-3"
                 >
-                  {microcopy.nav.cta}
+                  <span>{microcopy.nav.cta}</span>
+                  <span className="tab-cta-arrow">→</span>
                 </Link>
-                <Link
-                  href="/alpha"
-                  onClick={() => setOpen(false)}
-                  className="block font-serif text-[44px] leading-none tracking-tight text-bone-1"
-                >
-                  Private alpha
-                </Link>
-                <Link
-                  href="#system"
-                  onClick={() => setOpen(false)}
-                  className="block font-serif text-[44px] leading-none tracking-tight text-bone-1"
-                >
-                  The system
-                </Link>
-                <Link
-                  href="#preview"
-                  onClick={() => setOpen(false)}
-                  className="block font-serif text-[44px] leading-none tracking-tight text-bone-1"
-                >
-                  Sample memo
-                </Link>
-              </div>
-              <div className="mt-auto flex items-center justify-between border-t border-bone-0/10 pt-6 font-mono text-[10px] uppercase tracking-[0.14em] text-bone-2">
-                <span>{microcopy.brand.name}</span>
-                <span className="tabular text-bone-1">
-                  {counterStr} {microcopy.nav.counter}
-                </span>
-              </div>
-            </div>
-          </motion.div>
-        )}
-      </AnimatePresence>
-    </header>
+              </DrawerClose>
+            </nav>
+          </DrawerContent>
+        </Drawer>
+      </div>
+    </motion.header>
   )
 }
 
-/**
- * DigitOdometer — three-character odometer where each digit slides up when it
- * changes. Outgoing digit exits up, new digit enters from below. No bouncing.
- */
-function DigitOdometer({ value }: { value: string }) {
-  const chars = value.split("")
+function NavLink({ href, children }: { href: string; children: ReactNode }) {
   return (
-    <span className="inline-flex items-baseline">
-      {chars.map((c, i) => (
-        <DigitCell key={i} digit={c} />
-      ))}
-    </span>
-  )
-}
-
-function DigitCell({ digit }: { digit: string }) {
-  return (
-    <span className="relative inline-block h-[1.1em] w-[0.62em] overflow-hidden text-bone-0">
-      <AnimatePresence mode="popLayout" initial={false}>
-        <motion.span
-          key={digit}
-          initial={{ y: "100%" }}
-          animate={{ y: 0 }}
-          exit={{ y: "-100%" }}
-          transition={{ duration: 0.32, ease: ease.editorial }}
-          className="absolute inset-0 flex items-center justify-center tabular"
-        >
-          {digit}
-        </motion.span>
-      </AnimatePresence>
-    </span>
-  )
-}
-
-function SystemFlyout() {
-  const [open, setOpen] = useState(false)
-  const ref = useRef<HTMLDivElement>(null)
-
-  useEffect(() => {
-    const onClick = (e: MouseEvent) => {
-      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false)
-    }
-    document.addEventListener("mousedown", onClick)
-    return () => document.removeEventListener("mousedown", onClick)
-  }, [])
-
-  return (
-    <div ref={ref} className="relative">
-      <button
-        type="button"
-        onClick={() => setOpen((v) => !v)}
-        className="font-mono text-[11px] uppercase tracking-[0.16em] text-bone-1 transition-colors duration-200 hover:text-bone-0"
-        data-cursor="read"
-      >
-        {microcopy.nav.secondary}
-        <span className={`ml-2 inline-block transition-transform ${open ? "rotate-180" : ""}`}>▾</span>
-      </button>
-
-      <AnimatePresence>
-        {open && (
-          <motion.div
-            initial={{ opacity: 0, y: -6 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -6 }}
-            transition={{ duration: 0.28, ease: ease.editorial }}
-            className="absolute right-0 top-[calc(100%+12px)] w-[420px] border border-bone-0/10 bg-ink-1 p-6"
-          >
-            <p className="mono-caption mb-5">The decision system</p>
-            <div className="space-y-4">
-              {microcopy.system.stages.map((s) => (
-                <Link
-                  key={s.n}
-                  href="#system"
-                  onClick={() => setOpen(false)}
-                  className="group grid grid-cols-[40px_1fr] gap-4 border-t border-bone-0/[0.06] pt-4 first:border-t-0 first:pt-0"
-                  data-cursor="read"
-                >
-                  <span className="mono-caption tabular">{s.n}</span>
-                  <div>
-                    <div className="text-[15px] font-medium text-bone-0 transition-transform duration-200 group-hover:translate-x-1">
-                      {s.title}
-                    </div>
-                    <p className="mt-1 text-[13px] leading-relaxed text-bone-1">{s.body}</p>
-                  </div>
-                </Link>
-              ))}
-            </div>
-          </motion.div>
-        )}
-      </AnimatePresence>
-    </div>
-  )
-}
-
-function ValidateCta() {
-  const ref = useRef<HTMLAnchorElement>(null)
-  const reduce = useReducedMotion()
-
-  useEffect(() => {
-    if (reduce) return
-    const el = ref.current
-    if (!el) return
-    const onMove = (e: MouseEvent) => {
-      const r = el.getBoundingClientRect()
-      const x = e.clientX - (r.left + r.width / 2)
-      const y = e.clientY - (r.top + r.height / 2)
-      el.style.transform = `translate(${x * 0.18}px, ${y * 0.18}px)`
-    }
-    const onLeave = () => (el.style.transform = "translate(0, 0)")
-    const parent = el.parentElement
-    parent?.addEventListener("mousemove", onMove)
-    parent?.addEventListener("mouseleave", onLeave)
-    return () => {
-      parent?.removeEventListener("mousemove", onMove)
-      parent?.removeEventListener("mouseleave", onLeave)
-    }
-  }, [reduce])
-
-  return (
-    <span className="inline-block px-2 py-2">
-      <Link
-        ref={ref}
-        href="/auth?next=/dashboard/validate"
-        className="tab-cta inline-flex"
-        data-cursor="file"
-        style={{
-          transition: "transform 220ms cubic-bezier(0.32, 0.72, 0, 1), color 220ms, border-color 220ms",
-        }}
-      >
-        <span>{microcopy.nav.cta}</span>
-        <span className="tab-cta-arrow">→</span>
-      </Link>
-    </span>
+    <Link
+      href={href}
+      className="rounded-full px-3 py-2 text-[13px] font-medium text-bone-2 transition-colors hover:bg-white/[0.06] hover:text-bone-0"
+    >
+      {children}
+    </Link>
   )
 }

@@ -1,4 +1,5 @@
 import { z } from "zod"
+import { BusinessDNASchema } from "@/lib/schemas/business-dna"
 
 const LongReportSchema = z.object({
   text: z.string().min(0), // enforcement of >=300 words happens in pipeline
@@ -142,6 +143,26 @@ export const FreeValidationResponseSchema = z.object({
     degraded: z.boolean().optional(),
     degradedReason: z.string().nullable().optional(),
     enginePath: z.enum(["gemini_pipeline", "heuristic_fallback"]).optional(),
+    industryClassification: z
+      .object({
+        primaryVertical: z.string(),
+        secondaryVertical: z.string().nullable(),
+        confidence01: z.number(),
+        businessModel: z.string(),
+        operationalStructure: z.string(),
+        complexityType: z.string(),
+        buyerType: z.string(),
+        deploymentModel: z.string(),
+        rationale: z.string(),
+      })
+      .optional(),
+    cognitionMismatch: z
+      .object({
+        mismatchedFrameworkTerms: z.array(z.string()),
+        suspectedArchetypeBleed: z.array(z.string()),
+      })
+      .optional(),
+    businessDNA: BusinessDNASchema.optional(),
   }),
 })
 

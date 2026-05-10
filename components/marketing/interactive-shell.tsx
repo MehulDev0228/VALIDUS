@@ -1,22 +1,22 @@
 "use client"
 
-import { CursorCompanion } from "./cursor-companion"
-import { DwellTicker } from "./dwell-ticker"
 import { FileMemoPill } from "./file-memo-pill"
-import { SelectionQuote } from "./selection-quote"
 
 /**
- * InteractiveShell — wraps marketing pages with the bespoke interaction
- * layer (cursor companion, dwell ticker, conversion pill). Mounts once on
- * the home route; respects reduced-motion and pointer-coarse internally.
+ * InteractiveShell — minimal wrapper around the marketing page.
+ *
+ * Earlier iterations attached a CursorCompanion (trailing caption near
+ * the cursor), a DwellTicker (forensic log), a SelectionQuote (copy
+ * popover), and an AmbientCursor (radial light). All of these were
+ * "designer signatures" — they called attention to themselves rather
+ * than helping the user. Removed.
+ *
+ * FileMemoPill is kept because it is a functional CTA, not ornament.
  */
 export function InteractiveShell({ children }: { children: React.ReactNode }) {
   return (
     <>
-      <CursorCompanion />
-      <DwellTicker />
       <FileMemoPill />
-      <SelectionQuote />
       {children}
     </>
   )
