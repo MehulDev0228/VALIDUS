@@ -19,6 +19,7 @@ import { useAuth } from "@/contexts/auth-context"
 import { ideaKeyFromIdea } from "@/lib/founder-workflow/types"
 import { buildWhyVerdictLines } from "@/lib/memo/why-verdict"
 import { useChamberSettle } from "@/components/chamber"
+import { ideaInputFromFreeValidation } from "@/lib/validation/idea-input-from-results"
 
 type Verdict = "BUILD" | "PIVOT" | "KILL"
 
@@ -61,6 +62,8 @@ export function ValidationResultsExperience() {
               try {
                 localStorage.setItem("validationResults", JSON.stringify(data.validation_results))
                 if (data.idea_id) localStorage.setItem("ideaId", data.idea_id)
+                const brief = ideaInputFromFreeValidation(data.validation_results as Record<string, unknown>)
+                localStorage.setItem("lastIdeaInput", JSON.stringify(brief))
               } catch {}
               try {
                 void fetch("/api/metrics/event", {
@@ -79,7 +82,12 @@ export function ValidationResultsExperience() {
       try {
         const stored = typeof window !== "undefined" ? localStorage.getItem("validationResults") : null
         if (stored && !cancelled) {
-          setResults(JSON.parse(stored))
+          const parsed = JSON.parse(stored) as Record<string, unknown>
+          setResults(parsed)
+          try {
+            const brief = ideaInputFromFreeValidation(parsed)
+            localStorage.setItem("lastIdeaInput", JSON.stringify(brief))
+          } catch {}
           try {
             void fetch("/api/metrics/event", {
               method: "POST",

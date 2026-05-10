@@ -6,6 +6,7 @@ import type { DecisionRecord, ValidationAttempt } from "@/lib/founder-workflow/t
 import { ideaKeyFromIdea } from "@/lib/founder-workflow/types"
 import { appendValidationAttempt, readValidationAttempts } from "@/lib/founder-workflow/storage"
 import type { IdeaInput } from "@/lib/schemas/idea"
+import { ideaInputFromFreeValidation } from "@/lib/validation/idea-input-from-results"
 import { useAuth } from "@/contexts/auth-context"
 import { inferExperimentObservationTags } from "@/lib/founder-memory/experiment-tags"
 import { extractMemoProgressionSnapshot } from "@/lib/founder-memory/extract-memo-snapshot"
@@ -62,6 +63,7 @@ export function FounderDecisionPanel({ validation }: Props) {
   const [learnings, setLearnings] = useState("")
   const [iterateLoading, setIterateLoading] = useState(false)
   const [iterateError, setIterateError] = useState<string | null>(null)
+  const [iterateInfo, setIterateInfo] = useState<string | null>(null)
   const [refined, setRefined] = useState<RefinedDraft | null>(null)
   const [logBusy, setLogBusy] = useState(false)
   const [logError, setLogError] = useState<string | null>(null)
@@ -77,10 +79,20 @@ export function FounderDecisionPanel({ validation }: Props) {
     return v === "BUILD" || v === "KILL" || v === "PIVOT" ? v : "PIVOT"
   }, [validation])
 
+  const synthesizedIdea = useMemo(() => {
+    try {
+      return ideaInputFromFreeValidation(validation as Record<string, unknown>)
+    } catch {
+      return null
+    }
+  }, [validation])
+
+  const effectiveInput = lastInput ?? synthesizedIdea
+
   const ideaKey = useMemo(() => {
-    if (!lastInput?.title) return ""
-    return ideaKeyFromIdea({ title: lastInput.title, description: lastInput.description || "" })
-  }, [lastInput])
+    if (!effectiveInput?.title) return ""
+    return ideaKeyFromIdea({ title: effectiveInput.title, description: effectiveInput.description || "" })
+  }, [effectiveInput])
 
   const normalizeAttemptResult = useCallback((r: unknown): string => {
     if (typeof r === "string") return r
@@ -109,7 +121,7 @@ export function FounderDecisionPanel({ validation }: Props) {
           (log: { id: string; actionTaken: string; result: string; learnings: string; timestamp: string }) => ({
             id: log.id,
             ideaKey,
-            ideaTitle: lastInput?.title ?? "—",
+            ideaTitle: effectiveInput?.title ?? "—",
             actionTaken: log.actionTaken,
             result: log.result,
             learnings: log.learnings,
@@ -126,7 +138,7 @@ export function FounderDecisionPanel({ validation }: Props) {
     } catch {
       setAttempts(local.sort((a, b) => b.createdAt.localeCompare(a.createdAt)))
     }
-  }, [ideaId, ideaKey, lastInput?.title, normalizeAttemptResult])
+  }, [ideaId, ideaKey, effectiveInput?.title, normalizeAttemptResult])
 
   // Hydrate identity from localStorage written by the validate flow.
   useEffect(() => {
@@ -140,15 +152,26 @@ export function FounderDecisionPanel({ validation }: Props) {
     }
   }, [])
 
+  // Hydrate brief from memo JSON when opened via ?run= or fresh tab (no localStorage brief).
+  useEffect(() => {
+    if (lastInput !== null || !synthesizedIdea) return
+    setLastInput(synthesizedIdea)
+    try {
+      localStorage.setItem("lastIdeaInput", JSON.stringify(synthesizedIdea))
+    } catch {
+      /* ignore */
+    }
+  }, [lastInput, synthesizedIdea])
+
   // First-paint side effects: ensure this run is on the ledger (server), fetch attempts.
   useEffect(() => {
-    if (!validation || !ideaId || !lastInput?.title || ledgerPostedRef.current) return
+    if (!validation || !ideaId || !effectiveInput?.title || ledgerPostedRef.current) return
     ledgerPostedRef.current = true
     const verdict = (validation as any).finalVerdict?.decision as DecisionRecord["verdict"] | undefined
     const createdAt = new Date().toISOString()
     const ideaKeyStable = ideaKeyFromIdea({
-      title: lastInput.title,
-      description: lastInput.description || "",
+      title: effectiveInput.title,
+      description: effectiveInput.description || "",
     })
     const memoSnapshot = extractMemoProgressionSnapshot(
       validation as Record<string, unknown>,
@@ -160,7 +183,7 @@ export function FounderDecisionPanel({ validation }: Props) {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         ideaId,
-        ideaTitle: lastInput.title,
+        ideaTitle: effectiveInput.title,
         verdict: verdict ?? "PIVOT",
         opportunityScore: (validation as any).opportunityScore,
         summary: (validation as any).finalVerdict?.brutalSummary ?? (validation as any).summary,
@@ -177,8 +200,8 @@ export function FounderDecisionPanel({ validation }: Props) {
           kind: "validation_verdict",
           ideaId,
           ideaKey: ideaKeyStable,
-          ideaTitle: lastInput.title,
-          ideaExcerpt: (lastInput.description || "").slice(0, 1200),
+          ideaTitle: effectiveInput.title,
+          ideaExcerpt: (effectiveInput.description || "").slice(0, 1200),
           verdict: verdict ?? "PIVOT",
           opportunityScore: (validation as any).opportunityScore,
           summary: (validation as any).finalVerdict?.brutalSummary ?? (validation as any).summary,
@@ -188,7 +211,7 @@ export function FounderDecisionPanel({ validation }: Props) {
       }).catch(() => {})
     }
     void refreshAttempts()
-  }, [validation, ideaId, lastInput, refreshAttempts, user?.id])
+  }, [validation, ideaId, effectiveInput, refreshAttempts, user?.id])
 
   const planner = (validation as any).executionPlanner48h as PlannerStep[] | undefined
 
@@ -198,7 +221,7 @@ export function FounderDecisionPanel({ validation }: Props) {
       setLogError("Sign in to log attempts — your tracker is saved to your account.")
       return
     }
-    if (!lastInput?.title || !ideaKey) {
+    if (!effectiveInput?.title || !ideaKey) {
       setLogError("Missing brief context. Re-file a memo to seed the tracker.")
       return
     }
@@ -234,8 +257,8 @@ export function FounderDecisionPanel({ validation }: Props) {
     if (user?.id) {
       const observationTags = inferExperimentObservationTags(action, result, learn)
       const lineageKey = ideaKeyFromIdea({
-        title: lastInput.title,
-        description: lastInput.description || "",
+        title: effectiveInput.title,
+        description: effectiveInput.description || "",
       })
       void fetch("/api/founder-memory/events", {
         method: "POST",
@@ -244,7 +267,7 @@ export function FounderDecisionPanel({ validation }: Props) {
           kind: "experiment",
           ideaId,
           ideaKey: lineageKey,
-          ideaTitle: lastInput.title,
+          ideaTitle: effectiveInput.title,
           actionTaken: action,
           outcome: result,
           learnings: learn,
@@ -263,7 +286,7 @@ export function FounderDecisionPanel({ validation }: Props) {
     }
     appendValidationAttempt({
       ideaKey,
-      ideaTitle: lastInput.title,
+      ideaTitle: effectiveInput.title,
       actionTaken: action,
       result,
       learnings: learn,
@@ -277,8 +300,9 @@ export function FounderDecisionPanel({ validation }: Props) {
   }
 
   async function handleIterate() {
-    if (!lastInput) return
+    if (!effectiveInput) return
     setIterateError(null)
+    setIterateInfo(null)
     setRefined(null)
     setIterateLoading(true)
     try {
@@ -289,9 +313,10 @@ export function FounderDecisionPanel({ validation }: Props) {
       }))
       const res = await fetch("/api/founder/iterate", {
         method: "POST",
+        credentials: "same-origin",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          idea: lastInput,
+          idea: effectiveInput,
           lastValidation: validation,
           attempts: attemptPayload,
         }),
@@ -302,6 +327,9 @@ export function FounderDecisionPanel({ validation }: Props) {
         ...data.refined,
         whyChanged: Array.isArray(data.refined?.whyChanged) ? data.refined.whyChanged : [],
       })
+      if (data.degraded === true && typeof data.degradedReason === "string") {
+        setIterateInfo(data.degradedReason)
+      }
     } catch (e) {
       setIterateError(e instanceof Error ? e.message : "Iteration refused")
     } finally {
@@ -387,20 +415,29 @@ export function FounderDecisionPanel({ validation }: Props) {
           <Field
             label="Action taken"
             value={actionTaken}
-            onChange={setActionTaken}
+            onChange={(v) => {
+              setActionTaken(v)
+              setLogError(null)
+            }}
             placeholder="12 cold DMs to ops managers, 1 landing page A/B"
           />
           <Field
             label="Outcome"
             value={resultText}
-            onChange={setResultText}
+            onChange={(v) => {
+              setResultText(v)
+              setLogError(null)
+            }}
             placeholder="counts, verbatim replies, objections, conversion, silence…"
             multiline
           />
           <Field
             label="Learning"
             value={learnings}
-            onChange={setLearnings}
+            onChange={(v) => {
+              setLearnings(v)
+              setLogError(null)
+            }}
             placeholder="what would you do differently tomorrow?"
             multiline
           />
@@ -412,17 +449,20 @@ export function FounderDecisionPanel({ validation }: Props) {
           <button
             type="button"
             onClick={handleLogAttempt}
-            disabled={!ideaKey || !ideaId || logBusy}
-            className={`tab-cta ${(!ideaKey || !ideaId || logBusy) ? "pointer-events-none opacity-40" : ""}`}
+            disabled={!ideaKey || !ideaId || logBusy || !user?.id}
+            className={`tab-cta ${(!ideaKey || !ideaId || logBusy || !user?.id) ? "pointer-events-none opacity-40" : ""}`}
             data-cursor="file"
           >
             <span>{logBusy ? "Logging…" : "Log attempt"}</span>
             <span className="tab-cta-arrow">→</span>
           </button>
         </div>
+        <p className="mt-3 text-[13px] text-bone-2">
+          Placeholders don&apos;t count — type something in each column. Same minimum substance as your memo brief.
+        </p>
         {logError && (
-          <div className="mt-4 border-l-2 border-verdict-kill bg-verdict-kill/[0.04] px-4 py-3">
-            <span className="mono-caption text-bone-2">Blocked</span>
+          <div className="mt-4 border-l-2 border-verdict-pivot bg-verdict-pivot/[0.06] px-4 py-3">
+            <span className="text-[11px] font-semibold uppercase tracking-wide text-verdict-pivot">Can&apos;t log yet</span>
             <p className="mt-1 text-[14px] text-bone-0">{logError}</p>
           </div>
         )}
@@ -465,20 +505,26 @@ export function FounderDecisionPanel({ validation }: Props) {
           <button
             type="button"
             onClick={handleIterate}
-            disabled={!lastInput || iterateLoading}
-            className={`tab-cta ${!lastInput || iterateLoading ? "pointer-events-none opacity-40" : ""}`}
+            disabled={!effectiveInput || iterateLoading}
+            className={`tab-cta ${!effectiveInput || iterateLoading ? "pointer-events-none opacity-40" : ""}`}
             data-cursor="file"
           >
             <span>{iterateLoading ? "Rewriting…" : "Generate sharper draft"}</span>
             <span className="tab-cta-arrow">→</span>
           </button>
-          {!lastInput && (
-            <span className="mono-caption text-bone-2">no brief on file — re-file from the validate form</span>
+          {!effectiveInput && (
+            <span className="text-[13px] text-bone-2">No brief on file — re-file from the validate form.</span>
           )}
         </div>
+        {iterateInfo && (
+          <div className="mt-4 border-l-2 border-ember/40 bg-ember/[0.06] px-4 py-3">
+            <span className="text-[11px] font-semibold uppercase tracking-wide text-ember">Offline merge</span>
+            <p className="mt-1 text-[14px] text-bone-1">{iterateInfo}</p>
+          </div>
+        )}
         {iterateError && (
           <div className="mt-4 border-l-2 border-verdict-kill bg-verdict-kill/[0.04] px-4 py-3">
-            <span className="mono-caption text-bone-2">Blocked</span>
+            <span className="text-[11px] font-semibold uppercase tracking-wide text-verdict-kill">Iteration error</span>
             <p className="mt-1 text-[14px] text-bone-0">{iterateError}</p>
           </div>
         )}
