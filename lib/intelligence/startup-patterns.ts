@@ -650,4 +650,334 @@ export const HISTORICAL_MECHANISM_LIBRARY: HistoricalMechanismProfile[] = [
     moatOneLiner:
       "Thin alone — moat is workflow embed depth (CRM, payments) not the slot picker widget.",
   },
+  {
+    id: "linear",
+    aliases: ["linear app", "linear issue tracking", "keyboard-first issues"],
+    marketType: "developer_tool",
+    distributionModel: "bottom_up",
+    networkEffectType: "workflow_lockin",
+    switchingCost: "medium",
+    behavioralDependency: "utility",
+    timingSensitivity: "medium",
+    platformRisk: "medium",
+    operationalComplexity: "medium",
+    monetizationRisk: "low",
+    patternTags: [
+      "speed_as_product_ethos_vs_legacy_pm_suite_viscosity",
+      "workflow_keyboard_native_slice_through_issue_entropy",
+    ],
+    whyWorkedOneLiner:
+      "Issue tracking won when velocity + defaults replaced enterprise configuration theater for product-led teams.",
+    nearDeathOneLiner:
+      "Incumbent suites bundle adjacent modules — differentiation must climb upstack into project intelligence.",
+    distributionAdvantageOneLiner:
+      "Bottom-up repo-shaped adoption inside eng orgs spreads faster than procurement-led ALM rip-and-replace.",
+    behavioralInsightOneLiner:
+      "Engineers pay for calm throughput — latency shame beats slide decks.",
+    timingOneLiner:
+      "Remote+distributed product orgs made async issue truth the heartbeat metric.",
+    operationalBottleneckOneLiner:
+      "Reliability + permissions depth under enterprise scale decides retention.",
+    monetizationModelOneLiner:
+      "Seat expansion plus enterprise controls once workflow graph embeds.",
+    moatOneLiner:
+      "Issue graph + integrations — switching churns sprint rituals and CI glue.",
+  },
+  {
+    id: "canva",
+    aliases: ["canva", "design templates", "drag drop design"],
+    marketType: "creator_tool",
+    distributionModel: "viral",
+    networkEffectType: "data",
+    switchingCost: "low",
+    behavioralDependency: "social_validation",
+    timingSensitivity: "medium",
+    platformRisk: "high",
+    operationalComplexity: "medium",
+    monetizationRisk: "low",
+    patternTags: [
+      "template_marketplace_lowers_skill_floor_for_output_velocity",
+      "brand_safe_design_defaults_reduce_review_cycles",
+    ],
+    whyWorkedOneLiner:
+      "Democratized acceptable design outputs — templates beat blank canvas anxiety.",
+    nearDeathOneLiner:
+      "Incumbent suites bundle creative cloud — must climb brand systems + collaboration depth.",
+    distributionAdvantageOneLiner:
+      "Viral template surfaces + education channels recruited non-design buyers.",
+    behavioralInsightOneLiner:
+      "People pay to avoid shame — output quality as identity protection.",
+    timingOneLiner:
+      "Social marketing explosion raised baseline visual literacy expectations overnight.",
+    operationalBottleneckOneLiner:
+      "Moderation + IP risk on community templates.",
+    monetizationModelOneLiner:
+      "Freemium plus seat/brand kits + stock marketplace rake.",
+    moatOneLiner:
+      "Brand kit + asset library lock-in across teams once campaigns live in files.",
+  },
+  {
+    id: "loom",
+    aliases: ["loom video", "async video messages", "screen recording share"],
+    marketType: "workflow",
+    distributionModel: "bottom_up",
+    networkEffectType: "none",
+    switchingCost: "low",
+    behavioralDependency: "utility",
+    timingSensitivity: "medium",
+    platformRisk: "high",
+    operationalComplexity: "low",
+    monetizationRisk: "low",
+    patternTags: [
+      "recipient_side_activation_via_share_links",
+      "async_video_replaces_meeting_tax_when_tone_matters",
+    ],
+    whyWorkedOneLiner:
+      "Replaced meetings with low-friction explainers — human tone scales knowledge transfer.",
+    nearDeathOneLiner:
+      "OS + suite embeds copy loom-shaped UX — commodity unless workflow depth follows.",
+    distributionAdvantageOneLiner:
+      "Every external share carried brand — recipient onboarding loop embedded acquisition.",
+    behavioralInsightOneLiner:
+      "People tolerate watching video when reading latency feels higher risk.",
+    timingOneLiner:
+      "Remote-first teams blew meeting calendars — async video became coordination valve.",
+    operationalBottleneckOneLiner:
+      "Transcription + search quality determines replay behavior.",
+    monetizationModelOneLiner:
+      "Team seats + admin once links saturate internal comms.",
+    moatOneLiner:
+      "Thin alone — moat is embed depth + CRM/project graph attachments.",
+  },
+  {
+    id: "plaid",
+    aliases: ["plaid", "bank linking", "financial account aggregation"],
+    marketType: "fintech",
+    distributionModel: "bottom_up",
+    networkEffectType: "workflow_lockin",
+    switchingCost: "high",
+    behavioralDependency: "trust",
+    timingSensitivity: "high",
+    platformRisk: "high",
+    operationalComplexity: "high",
+    monetizationRisk: "medium",
+    patternTags: [
+      "regulated_plumbing_wins_on_uptime_and_coverage_not_ui",
+      "bank_relationship_graph_becomes_switching_moat",
+    ],
+    whyWorkedOneLiner:
+      "Bank linking became table stakes for fintech UX — reliability beat novelty.",
+    nearDeathOneLiner:
+      "Policy shocks + bank API friction can sever coverage overnight.",
+    distributionAdvantageOneLiner:
+      "Developer-led integrations spread inside apps that moved money.",
+    behavioralInsightOneLiner:
+      "Founders pay for fewer auth failures — trust is measured in decline rates.",
+    timingOneLiner:
+      "Open banking tailwinds + mobile-first money apps demanded uniform rails.",
+    operationalBottleneckOneLiner:
+      "Compliance, fraud, institution-specific edge cases — ops not slides.",
+    monetizationModelOneLiner:
+      "Per-use + tiered premium data products once traffic compounds.",
+    moatOneLiner:
+      "Coverage breadth + institutional relationships — rewiring routes is expensive.",
+  },
+  {
+    id: "toast",
+    aliases: ["toast pos", "restaurant pos", "toast tab"],
+    marketType: "fintech",
+    distributionModel: "sales_led",
+    networkEffectType: "none",
+    switchingCost: "high",
+    behavioralDependency: "utility",
+    timingSensitivity: "medium",
+    platformRisk: "medium",
+    operationalComplexity: "high",
+    monetizationRisk: "medium",
+    patternTags: [
+      "vertical_saas_plus_payments_take_rate_in_physical_ops",
+      "hardware_plus_service_installation_constraint",
+    ],
+    whyWorkedOneLiner:
+      "Owned restaurants end-to-end workflow — payments + labor + inventory in one throat.",
+    nearDeathOneLiner:
+      "Macro shocks to dining traffic expose fixed cost stacks.",
+    distributionAdvantageOneLiner:
+      "Field sales + onboarding muscle in fragmented SMB long tail.",
+    behavioralInsightOneLiner:
+      "Operators buy uptime — downtime is existential, not annoyance.",
+    timingOneLiner:
+      "Digital ordering acceleration rewired guest journeys faster than legacy POS could iterate.",
+    operationalBottleneckOneLiner:
+      "Support load across heterogeneous venues + hardware returns.",
+    monetizationModelOneLiner:
+      "SaaS + payments rake anchored to GMV throughput.",
+    moatOneLiner:
+      "Embedded payments + labor data — rip-out risks revenue nights.",
+  },
+  {
+    id: "duolingo",
+    aliases: ["duolingo", "language learning app", "gamified lessons"],
+    marketType: "consumer_social",
+    distributionModel: "viral",
+    networkEffectType: "data",
+    switchingCost: "low",
+    behavioralDependency: "habit",
+    timingSensitivity: "medium",
+    platformRisk: "high",
+    operationalComplexity: "medium",
+    monetizationRisk: "medium",
+    patternTags: [
+      "streak_psychology_and_micro_wins_anchor_daily_retention",
+      "freemium_with_ads_then_subscription_plus_family_plans",
+    ],
+    whyWorkedOneLiner:
+      "Turned language practice into a lightweight habit loop with shame-proof onboarding.",
+    nearDeathOneLiner:
+      "LLM tutors commoditize drills — must own longitudinal motivation graph.",
+    distributionAdvantageOneLiner:
+      "App-store organic + cultural meme loops recruited learners globally.",
+    behavioralInsightOneLiner:
+      "Retention follows streak architecture — guilt + micro rewards beat curriculum purity.",
+    timingOneLiner:
+      "Mobile-first global workforce mobility raised baseline desire for language upsides.",
+    operationalBottleneckOneLiner:
+      "Content scaling across locales + moderation on social features.",
+    monetizationModelOneLiner:
+      "Ads + subscription plus gamified currency purchases.",
+    moatOneLiner:
+      "Longitudinal learner graph + brand trust — switching loses streak equity.",
+  },
+  {
+    id: "robinhood",
+    aliases: ["robinhood", "commission free trades", "retail trading app"],
+    marketType: "fintech",
+    distributionModel: "viral",
+    networkEffectType: "none",
+    switchingCost: "low",
+    behavioralDependency: "status",
+    timingSensitivity: "high",
+    platformRisk: "high",
+    operationalComplexity: "high",
+    monetizationRisk: "high",
+    patternTags: [
+      "behavioral_options_retention_amid_regulatory_and_outage_risk",
+      "payment_for_order_flow_controversy_dependent_unit_economics",
+    ],
+    whyWorkedOneLiner:
+      "Collapsed friction to participate — mobile UX plus zero-commission narrative recruited retail.",
+    nearDeathOneLiner:
+      "Market shocks + outages destroy trust faster than brand rebuilds.",
+    distributionAdvantageOneLiner:
+      "Referral loops + cultural zeitgeist moments concentrated adoption bursts.",
+    behavioralInsightOneLiner:
+      "Retail investors chase agency feelings — UX latency matters more than education.",
+    timingOneLiner:
+      "Zero-rate era + meme-stock culture widened top-of-funnel dramatically.",
+    operationalBottleneckOneLiner:
+      "Clearing, regulatory scrutiny, customer service load during volatility.",
+    monetizationModelOneLiner:
+      "Net interest + payment for order flow + subscriptions.",
+    moatOneLiner:
+      "Thin — differentiation shifts to trust + product breadth under stress.",
+  },
+  {
+    id: "coinbase",
+    aliases: ["coinbase", "crypto exchange retail", "custody wallet"],
+    marketType: "fintech",
+    distributionModel: "community",
+    networkEffectType: "data",
+    switchingCost: "medium",
+    behavioralDependency: "trust",
+    timingSensitivity: "high",
+    platformRisk: "high",
+    operationalComplexity: "high",
+    monetizationRisk: "medium",
+    patternTags: [
+      "regulated_on_ramp_brand_as_feature_amid_scam_density",
+      "fee_compression_when_cycle_turns",
+    ],
+    whyWorkedOneLiner:
+      "Became default compliant on-ramp when crypto UX felt unsafe elsewhere.",
+    nearDeathOneLiner:
+      "Cycle turns crater transaction revenue — diversification mandatory.",
+    distributionAdvantageOneLiner:
+      "Brand trust + fiat rails integrations beat long-tail exchanges during retail influx.",
+    behavioralInsightOneLiner:
+      "Retail buys reassurance — simplicity beats coin breadth for mainstream.",
+    timingOneLiner:
+      "Institutional curiosity plus ETF narratives expanded acceptable adoption.",
+    operationalBottleneckOneLiner:
+      "Compliance + fraud + custody security — incidents are existential.",
+    monetizationModelOneLiner:
+      "Trading fees + spread + subscriptions + staking services.",
+    moatOneLiner:
+      "Regulatory licensing + fiat plumbing depth — slow to replicate responsibly.",
+  },
+  {
+    id: "substack",
+    aliases: ["substack", "paid newsletters", "creator subscriptions"],
+    marketType: "creator_tool",
+    distributionModel: "creator_led",
+    networkEffectType: "cross_side",
+    switchingCost: "medium",
+    behavioralDependency: "identity",
+    timingSensitivity: "medium",
+    platformRisk: "high",
+    operationalComplexity: "low",
+    monetizationRisk: "low",
+    patternTags: [
+      "relationship_direct_to_reader_without_algorithmic_rent_first",
+      "simple_monetization_surface_reduces_creator_anxiety",
+    ],
+    whyWorkedOneLiner:
+      "Made paid newsletters Legible — billing + publishing without building stack.",
+    nearDeathOneLiner:
+      "Audience aggregation platforms can tax reach once dependency forms.",
+    distributionAdvantageOneLiner:
+      "Writers carried audiences cross-platform — portability narrative attracted talent.",
+    behavioralInsightOneLiner:
+      "Creators pay for sovereignty feelings — brand ownership matters emotionally.",
+    timingOneLiner:
+      "News fatigue + newsletter renaissance created supply-side readiness.",
+    operationalBottleneckOneLiner:
+      "Moderation + legal exposure at scale for controversial writers.",
+    monetizationModelOneLiner:
+      "Take rate on subscriptions plus discovery upsells.",
+    moatOneLiner:
+      "Writer relationships + payouts UX — switching risks subscriber churn workflow.",
+  },
+  {
+    id: "vercel",
+    aliases: ["vercel", "next.js hosting", "edge deployment"],
+    marketType: "infra",
+    distributionModel: "bottom_up",
+    networkEffectType: "workflow_lockin",
+    switchingCost: "medium",
+    behavioralDependency: "utility",
+    timingSensitivity: "medium",
+    platformRisk: "medium",
+    operationalComplexity: "high",
+    monetizationRisk: "low",
+    patternTags: [
+      "git_sha_as_deploy_unit_reduces_release_theatre",
+      "framework_coupling_as_distribution_via_developer_gravity",
+    ],
+    whyWorkedOneLiner:
+      "Frontend deploy became invisible plumbing — git push to URL crushed ops theatre.",
+    nearDeathOneLiner:
+      "Hyperscalers bundle competing DX — must expand edge + data surfaces.",
+    distributionAdvantageOneLiner:
+      "Framework gravity + OSS ecosystem pulled repos into hosted paths.",
+    behavioralInsightOneLiner:
+      "Devs adopt what removes pager noise — DX wins when incidents drop.",
+    timingOneLiner:
+      "Jamstack + edge compute wave rewarded instant preview flows.",
+    operationalBottleneckOneLiner:
+      "Multi-tenant reliability + abuse + edge policy complexity.",
+    monetizationModelOneLiner:
+      "Seat-adjacent usage billing on bandwidth + serverless + enterprise controls.",
+    moatOneLiner:
+      "Workflow embed + edge network — migrating breaks preview + CI rituals.",
+  },
 ]

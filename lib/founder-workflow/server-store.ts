@@ -6,6 +6,7 @@
 import { mkdir, readFile, writeFile } from "fs/promises"
 import { dirname, join } from "path"
 import { getSupabaseAdmin } from "@/lib/supabase-admin"
+import { formatRunId, parseRunUuid } from "@/lib/validation/extract-run-meta"
 
 export interface ValidationLogRecord {
   id: string
@@ -24,6 +25,8 @@ export interface DecisionHistoryRecord {
   opportunityScore?: number
   summary?: string
   timestamp: string
+  /** Formatted `run_…` id for deep links to memo results. */
+  runId?: string
 }
 
 export interface FdsStoreFile {
@@ -72,6 +75,7 @@ function mapDecisionRow(row: {
   opportunity_score: number | null
   notes: string | null
   created_at: string
+  run_id: string | null
 }): DecisionHistoryRecord {
   return {
     id: row.id,
@@ -81,6 +85,7 @@ function mapDecisionRow(row: {
     opportunityScore: row.opportunity_score ?? undefined,
     summary: row.notes ?? undefined,
     timestamp: row.created_at,
+    runId: row.run_id ? formatRunId(row.run_id) : undefined,
   }
 }
 
@@ -174,6 +179,19 @@ export async function fdsAppendDecision(
 
   const admin = getSupabaseAdmin()
   if (admin) {
+    let runUuid: string | null = null
+    if (entry.runId) {
+      const u = parseRunUuid(entry.runId)
+      if (u) {
+        const { data: vr, error: vrErr } = await admin
+          .from("validation_runs")
+          .select("id")
+          .eq("user_id", userId)
+          .eq("id", u)
+          .maybeSingle()
+        if (!vrErr && vr?.id) runUuid = u
+      }
+    }
     const { data: recentRows } = await admin
       .from("decisions")
       .select("created_at")
@@ -189,7 +207,7 @@ export async function fdsAppendDecision(
     if (dup) {
       const { data: last } = await admin
         .from("decisions")
-        .select("id, idea_key, idea_title, verdict, opportunity_score, notes, created_at")
+        .select("id, idea_key, idea_title, verdict, opportunity_score, notes, created_at, run_id")
         .eq("user_id", userId)
         .eq("idea_key", entry.ideaId.slice(0, 128))
         .order("created_at", { ascending: false })
@@ -210,8 +228,9 @@ export async function fdsAppendDecision(
         opportunity_score: entry.opportunityScore ?? null,
         notes: entry.summary?.slice(0, 500) ?? null,
         created_at: timestamp,
+        run_id: runUuid,
       })
-      .select("id, idea_key, idea_title, verdict, opportunity_score, notes, created_at")
+      .select("id, idea_key, idea_title, verdict, opportunity_score, notes, created_at, run_id")
       .single()
 
     if (!error && data) {
@@ -228,6 +247,7 @@ export async function fdsAppendDecision(
     opportunityScore: entry.opportunityScore,
     summary: entry.summary?.slice(0, 500),
     timestamp,
+    runId: entry.runId,
   }
   const store = await readStore()
   store.decisions = store.decisions.filter((d) => {
@@ -247,7 +267,7 @@ export async function fdsListDecisions(userId: string): Promise<DecisionHistoryR
   if (admin) {
     const { data, error } = await admin
       .from("decisions")
-      .select("id, idea_key, idea_title, verdict, opportunity_score, notes, created_at")
+      .select("id, idea_key, idea_title, verdict, opportunity_score, notes, created_at, run_id")
       .eq("user_id", userId)
       .order("created_at", { ascending: false })
       .limit(MAX_DECISIONS)

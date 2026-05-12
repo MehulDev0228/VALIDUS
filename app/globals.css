@@ -169,7 +169,8 @@
     inset: 0;
     z-index: 0;
     pointer-events: none;
-    background: radial-gradient(920px 520px at 38% 0%, rgb(6 182 212 / 0.065), transparent 62%);
+    /* Centered ambient wash — avoids left/right “edge glow” template trope */
+    background: radial-gradient(900px 480px at 50% -10%, rgb(6 182 212 / 0.045), transparent 58%);
   }
 
   .marketing-display {
@@ -463,11 +464,61 @@
     animation: marquee-x 48s linear infinite;
   }
 
+  .marketing-page-bg {
+    background-color: rgb(var(--ink-0));
+    background-image:
+      radial-gradient(ellipse 100% 80% at 50% -30%, rgb(6 182 212 / 0.09), transparent 55%),
+      radial-gradient(ellipse 60% 40% at 100% 20%, rgb(6 182 212 / 0.045), transparent 50%);
+  }
+
+  .marketing-grain::before {
+    content: "";
+    pointer-events: none;
+    position: absolute;
+    inset: 0;
+    z-index: 0;
+    opacity: 0.042;
+    mix-blend-mode: overlay;
+    background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.82' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+  }
+
+  .marketing-grain > * {
+    position: relative;
+    z-index: 1;
+  }
+
+  @keyframes fv-cta-shimmer {
+    0% {
+      background-position: 0% 50%;
+    }
+    100% {
+      background-position: 200% 50%;
+    }
+  }
+
+  /** Animated rim — outer wrapper; inner control keeps solid fill. */
+  .cta-shimmer-wrap {
+    display: inline-flex;
+    border-radius: var(--radius-sm);
+    padding: 1px;
+    background: linear-gradient(
+      110deg,
+      rgb(var(--ember) / 0.35),
+      rgb(var(--ember-light) / 0.65),
+      rgb(var(--ember) / 0.42),
+      rgb(var(--ember-light) / 0.55),
+      rgb(var(--ember) / 0.35)
+    );
+    background-size: 220% 220%;
+    animation: fv-cta-shimmer 4.2s linear infinite;
+  }
+
   @media (prefers-reduced-motion: reduce) {
     .hero-scroll-hint,
     .footer-rule-shimmer-animate,
     .animate-marquee,
-    .moving-border-rotate { animation: none !important; }
+    .moving-border-rotate,
+    .cta-shimmer-wrap { animation: none !important; }
     .spotlight-card::after { transition: none; opacity: 0 !important; }
     .breathe, .cursor-blink, .floating-panel { animation: none !important; }
     body::after { animation: none !important; }

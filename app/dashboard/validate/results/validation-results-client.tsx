@@ -6,6 +6,8 @@ import { deriveExecutionTaskItems } from "@/lib/founder-memory/execution-tasks"
 import Link from "next/link"
 import { motion } from "framer-motion"
 import { useRouter, useSearchParams } from "next/navigation"
+import { MemoViralToolbar } from "@/components/memo-viral-toolbar"
+import { Challenge48hPanel } from "@/components/challenge-48h-panel"
 import { microcopy } from "@/lib/microcopy"
 import { ease } from "@/lib/motion"
 import { FounderDecisionPanel } from "@/components/founder-decision-panel"
@@ -13,6 +15,9 @@ import { MemoFeedbackStrip } from "@/components/memo-feedback-strip"
 import { MemoAtAGlance } from "@/components/memo-at-a-glance"
 import { MemoResonanceLine } from "@/components/memo-resonance-line"
 import { MemoProductSignals } from "@/components/memo-product-intelligence"
+import { ScoreGauge } from "@/components/score-gauge"
+import { RadarBreakdown, type RadarDims } from "@/components/radar-breakdown"
+import { ContrarianView, type DissentEntry } from "@/components/contrarian-view"
 import { ReflectionPromptStrip } from "@/components/reflection-prompt-strip"
 import { WhyVerdictPanel } from "@/components/why-verdict-panel"
 import { useAuth } from "@/contexts/auth-context"
@@ -158,12 +163,12 @@ export function ValidationResultsExperience() {
 
   return (
     <PageShell>
-      <FreeMemo free={free} />
+      <FreeMemo free={free} mode="full" />
     </PageShell>
   )
 }
 
-function PageShell({ children }: { children?: React.ReactNode }) {
+export function PageShell({ children }: { children?: React.ReactNode }) {
   return (
     <div className="min-h-screen bg-ink-0 text-bone-0">
       <header className="sticky top-0 z-30 border-b border-bone-0/[0.04] bg-ink-0/85 backdrop-blur-xl">
@@ -190,7 +195,10 @@ function PageShell({ children }: { children?: React.ReactNode }) {
   )
 }
 
-function FreeMemo({ free }: { free: any }) {
+/** Full memo UI — used on `/dashboard/validate/results` and public `/memo/[id]` (mode=public). */
+export function FreeMemo({ free, mode = "full" }: { free: any; mode?: "full" | "public" }) {
+  const searchParams = useSearchParams()
+  const runIdFromUrl = mode === "public" ? null : searchParams.get("run")
   const { user } = useAuth()
   const score: number = free.score ?? 0
   const opportunityScore: number = (() => {
@@ -212,16 +220,17 @@ function FreeMemo({ free }: { free: any }) {
   }, [])
 
   const [verdictLanded, setVerdictLanded] = useState(false)
-  const [showHold, setShowHold] = useState(true)
+  const [showHold, setShowHold] = useState(() => mode !== "public")
 
   useEffect(() => {
+    if (mode === "public") return
     const t1 = setTimeout(() => setVerdictLanded(true), 2000)
     const t2 = setTimeout(() => setShowHold(false), 2600)
     return () => {
       clearTimeout(t1)
       clearTimeout(t2)
     }
-  }, [])
+  }, [mode])
 
   useEffect(() => {
     if (!user?.id || !runIdeaId) return
@@ -328,6 +337,49 @@ function FreeMemo({ free }: { free: any }) {
 
   const whyVerdictLines = useMemo(() => buildWhyVerdictLines(free, verdict), [free, verdict])
 
+  const radarValues: RadarDims | null = useMemo(() => {
+    const sb = free.scoreBreakdown as
+      | {
+          market?: number
+          competition?: number
+          monetization?: number
+          execution?: number
+          founderFit?: number
+        }
+      | undefined
+    if (
+      !sb ||
+      typeof sb.market !== "number" ||
+      typeof sb.competition !== "number" ||
+      typeof sb.monetization !== "number" ||
+      typeof sb.execution !== "number" ||
+      typeof sb.founderFit !== "number"
+    ) {
+      return null
+    }
+    return {
+      market: sb.market,
+      competition: sb.competition,
+      monetization: sb.monetization,
+      execution: sb.execution,
+      founderFit: sb.founderFit,
+    }
+  }, [free.scoreBreakdown])
+
+  const annotatedRiskRows = useMemo(() => {
+    const raw = free.annotatedRisks as Array<{ text: string; severity: string }> | undefined
+    if (Array.isArray(raw) && raw.length > 0) {
+      return raw.map((r) => ({
+        text: r.text,
+        severity: (r.severity === "critical" || r.severity === "high" || r.severity === "medium"
+          ? r.severity
+          : "medium") as "critical" | "high" | "medium",
+      }))
+    }
+    const flat = (free.whyThisIdeaWillLikelyFail ?? free.topRisks ?? []) as string[]
+    return flat.slice(0, 5).map((text) => ({ text, severity: "medium" as const }))
+  }, [free])
+
   const resonanceLine = useMemo(() => {
     const rs = free.finalVerdict?.topReasons as string[] | undefined
     if (!rs?.length) return ""
@@ -338,8 +390,8 @@ function FreeMemo({ free }: { free: any }) {
     return pick.length > 520 ? `${pick.slice(0, 518)}…` : pick
   }, [free.finalVerdict?.topReasons])
 
-  return (
-    <MemoProductSignals ideaId={runIdeaId} ideaKey={memoIdeaKey} verdict={verdict}>
+  const inner = (
+    <>
       {showHold && (
         <motion.div
           animate={{ opacity: verdictLanded ? 0 : 1 }}
@@ -385,9 +437,19 @@ function FreeMemo({ free }: { free: any }) {
           </h1>
         </div>
         <div className="col-span-12 mono-caption text-bone-2 md:col-span-5 md:text-right">
-          {microcopy.results.headerConfidential}
+          {mode === "public" ? "Public share · read-only" : microcopy.results.headerConfidential}
         </div>
       </motion.header>
+
+      {mode === "full" ? (
+        <div className="mt-8">
+          <MemoViralToolbar
+            runId={runIdFromUrl}
+            ideaTitle={free.idea_title || free.ideaContext?.coreIdea || "Idea"}
+            memoPayload={free as Record<string, unknown>}
+          />
+        </div>
+      ) : null}
 
       <MemoAtAGlance summaryLine={glanceSummary} topPressure={keyWarnings[0] ?? null} />
       {resonanceLine ? (
@@ -446,8 +508,23 @@ function FreeMemo({ free }: { free: any }) {
         >
           <div className="warm-surface rounded-sm border border-bone-0/[0.06] p-6 md:p-8">
             <div className="mono-caption">{microcopy.results.scoreLabel}</div>
-            <div className="tabular mt-3 font-sans text-[clamp(56px,6vw,88px)] font-medium leading-none tracking-[-0.03em]">
-              {opportunityScore}<span className="text-bone-2 text-[0.5em]">/100</span>
+            <div className="mt-6 flex flex-col items-center gap-8 md:flex-row md:items-start md:justify-between">
+              <ScoreGauge score={opportunityScore} verdict={verdict} size={120} />
+              {radarValues ? (
+                <div className="flex flex-1 flex-col items-center">
+                  <RadarBreakdown values={radarValues} />
+                  {free.scoreBreakdown?.weights ? (
+                    <p className="mono-caption mt-2 max-w-[240px] text-center text-[11px] text-bone-2">
+                      Weighted blend — dimensions are correlated, not independent votes.
+                    </p>
+                  ) : null}
+                </div>
+              ) : (
+                <div className="tabular font-sans text-[clamp(40px,5vw,72px)] font-medium leading-none tracking-[-0.03em]">
+                  {opportunityScore}
+                  <span className="text-bone-2 text-[0.5em]">/100</span>
+                </div>
+              )}
             </div>
             <div className="mt-8 space-y-4">
               {(free.scoreBreakdown
@@ -519,6 +596,10 @@ function FreeMemo({ free }: { free: any }) {
         <DiptychPanel label={microcopy.results.fails} body={fails} dim />
       </section>
 
+      {free.agentDissent && Array.isArray(free.agentDissent) && free.agentDissent.length > 0 ? (
+        <ContrarianView dissent={free.agentDissent as DissentEntry[]} />
+      ) : null}
+
       {/* Final Judge Reasoning */}
       {free.finalVerdict?.topReasons?.length ? (
         <Section
@@ -568,8 +649,24 @@ function FreeMemo({ free }: { free: any }) {
               <li key={i} className="grid grid-cols-[60px_1fr] gap-6 bg-ink-0 p-6">
                 <span className="mono-caption tabular">{`I${String(i + 1).padStart(2, "0")}`}</span>
                 <div className="space-y-2">
-                  <div className="font-sans text-[18px] font-medium text-bone-0">
-                    {insight.title || insight.trendObservation}
+                  <div className="flex flex-wrap items-center gap-2">
+                    <div className="font-sans text-[18px] font-medium text-bone-0">
+                      {insight.title || insight.trendObservation}
+                    </div>
+                    {insight.sourceType ? (
+                      <span className="rounded-sm border border-bone-0/[0.12] bg-bone-0/[0.04] px-2 py-0.5 mono-caption text-[10px] uppercase tracking-wide text-bone-2">
+                        {insight.sourceType === "nexus"
+                          ? "Nexus"
+                          : insight.sourceType === "kg"
+                            ? "Knowledge graph"
+                            : "Simulated"}
+                      </span>
+                    ) : null}
+                    {typeof insight.confidence === "number" ? (
+                      <span className="mono-caption tabular text-bone-2">
+                        confidence {Math.round(insight.confidence * 100)}%
+                      </span>
+                    ) : null}
                   </div>
                   <p className="text-[14px] leading-relaxed text-bone-1">
                     <span className="text-bone-2">Why it matters — </span>
@@ -626,16 +723,60 @@ function FreeMemo({ free }: { free: any }) {
         dataPiSection="risks"
       >
         <ul className="divide-y divide-bone-0/[0.06] border-y border-bone-0/[0.06]">
-          {(free.whyThisIdeaWillLikelyFail ?? free.topRisks ?? [])
-            .slice(0, 5)
-            .map((r: string, i: number) => (
-              <li key={i} className="grid grid-cols-[60px_1fr] items-baseline gap-6 py-5">
-                <span className="mono-caption tabular text-bone-2">{`F${String(i + 1).padStart(2, "0")}`}</span>
-                <span className="text-[16px] leading-snug text-bone-0">{r}</span>
+          {annotatedRiskRows.map((row, i: number) => {
+            const bar =
+              row.severity === "critical"
+                ? "bg-verdict-kill"
+                : row.severity === "high"
+                  ? "bg-verdict-pivot"
+                  : "bg-verdict-build/90"
+            const pill =
+              row.severity === "critical"
+                ? "text-verdict-kill"
+                : row.severity === "high"
+                  ? "text-verdict-pivot"
+                  : "text-verdict-build"
+            return (
+              <li key={i} className="grid grid-cols-[auto_1fr] items-start gap-4 py-5 md:gap-6">
+                <span className={`mt-1.5 h-full min-h-[28px] w-1 shrink-0 rounded-full ${bar}`} aria-hidden />
+                <div>
+                  <span className={`mono-caption tabular uppercase tracking-wide ${pill}`}>{row.severity}</span>
+                  <p className="mt-2 text-[16px] leading-snug text-bone-0">{row.text}</p>
+                </div>
               </li>
-            ))}
+            )
+          })}
         </ul>
       </Section>
+
+      {/* Comparables */}
+      {(free.comparables ?? []).length > 0 && (
+        <Section
+          eyebrow="Analogues"
+          title="Mechanism comparables"
+          className="mt-14 md:mt-20"
+          dataPiSection="comparables"
+        >
+          <ul className="divide-y divide-bone-0/[0.06] border-y border-bone-0/[0.06]">
+            {(free.comparables as Array<{ name: string; reason: string; url?: string }>).map((c, i: number) => (
+              <li key={i} className="py-6">
+                <div className="font-sans text-[17px] font-semibold text-bone-0">{c.name}</div>
+                <p className="mt-2 max-w-[720px] text-[15px] leading-relaxed text-bone-1">{c.reason}</p>
+                {c.url ? (
+                  <a
+                    href={c.url}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="mono-caption mt-3 inline-block text-ember/85 underline-offset-4 hover:text-ember"
+                  >
+                    Source ↗
+                  </a>
+                ) : null}
+              </li>
+            ))}
+          </ul>
+        </Section>
+      )}
 
       {/* Plan */}
       <Section
@@ -669,38 +810,66 @@ function FreeMemo({ free }: { free: any }) {
         </p>
       </Section>
 
-      <section className="mt-16 space-y-10">
-        <ReflectionPromptStrip
-          ideaId={runIdeaId}
-          ideaKey={memoIdeaKey}
-          verdict={verdict}
-          trigger="post_memo_read"
+      {mode === "full" ? (
+        <Challenge48hPanel
+          runId={runIdFromUrl}
+          plan={free.executionPlanner48h}
+          fallbackLines={free.fastestWayToProveWrong48h}
         />
-        <MemoFeedbackStrip ideaId={runIdeaId} verdict={verdict} />
-      </section>
+      ) : null}
 
-      {/* Founder Decision Panel — keeps existing FDS workflow */}
-      <Section
-        eyebrow={microcopy.results.decisionSystemEyebrow}
-        title={microcopy.results.decisionSystemTitle}
-        className="mt-14 md:mt-20"
-      >
-        <FounderDecisionPanel validation={free} />
-      </Section>
+      {mode === "full" ? (
+        <section className="mt-16 space-y-10">
+          <ReflectionPromptStrip
+            ideaId={runIdeaId}
+            ideaKey={memoIdeaKey}
+            verdict={verdict}
+            trigger="post_memo_read"
+          />
+          <MemoFeedbackStrip ideaId={runIdeaId} verdict={verdict} />
+        </section>
+      ) : null}
+
+      {mode === "full" ? (
+        <Section
+          eyebrow={microcopy.results.decisionSystemEyebrow}
+          title={microcopy.results.decisionSystemTitle}
+          className="mt-14 md:mt-20"
+        >
+          <FounderDecisionPanel validation={free} memoRunId={runIdFromUrl} />
+        </Section>
+      ) : null}
 
       <div className="mt-24 flex flex-wrap items-center justify-between gap-4 border-t border-bone-0/10 pt-8">
         <div className="marketing-label text-bone-2">
-          Memo {memoId} · {date} · private.
+          Memo {memoId} · {date} · {mode === "public" ? "shared read." : "private."}
         </div>
         <Link href="/dashboard/validate" className="tab-cta">
-          <span>{microcopy.results.submitNew}</span>
+          <span>{mode === "public" ? "Run your own memo" : microcopy.results.submitNew}</span>
           <span className="tab-cta-arrow">→</span>
         </Link>
       </div>
 
-      <ReflectionPrompt />
+      {mode === "full" ? <ReflectionPrompt /> : null}
     </article>
+    </>
+  )
+
+  return mode === "public" ? (
+    inner
+  ) : (
+    <MemoProductSignals ideaId={runIdeaId} ideaKey={memoIdeaKey} verdict={verdict}>
+      {inner}
     </MemoProductSignals>
+  )
+}
+
+/** Public share route — read-only shell + memo body (no founder panels). */
+export function PublicMemoExperience({ free }: { free: Record<string, unknown> }) {
+  return (
+    <PageShell>
+      <FreeMemo free={free} mode="public" />
+    </PageShell>
   )
 }
 
@@ -794,20 +963,34 @@ function ContextRow({ label, value }: { label: string; value?: string }) {
   )
 }
 
+function agentAccent(agentName: string): { emoji: string; bar: string } {
+  const n = `${agentName}`.toLowerCase()
+  if (n.includes("market")) return { emoji: "◎", bar: "border-l-verdict-build/70" }
+  if (n.includes("compet")) return { emoji: "⚔", bar: "border-l-verdict-pivot/70" }
+  if (n.includes("monet")) return { emoji: "◆", bar: "border-l-ember/60" }
+  if (n.includes("feasib") || n.includes("execution")) return { emoji: "⛭", bar: "border-l-bone-2/60" }
+  if (n.includes("icp")) return { emoji: "◇", bar: "border-l-mist/70" }
+  if (n.includes("risk") || n.includes("failure")) return { emoji: "⚠", bar: "border-l-verdict-kill/70" }
+  if (n.includes("valid")) return { emoji: "✳", bar: "border-l-verdict-build/50" }
+  return { emoji: "◈", bar: "border-l-bone-2/50" }
+}
+
 function AgentPanel({ agent, index }: { agent: any; index: number }) {
   const lean = (agent.verdictLean as Verdict) || "PIVOT"
   const tone =
     lean === "BUILD" ? "text-verdict-build" : lean === "KILL" ? "text-verdict-kill" : "text-verdict-pivot"
+  const acc = agentAccent(String(agent.agent || ""))
   return (
     <motion.li
       initial={{ opacity: 0, y: 12 }}
       whileInView={{ opacity: 1, y: 0 }}
       viewport={{ once: true }}
       transition={{ duration: 0.5, delay: 0.05 * index, ease: ease.editorial }}
-      className="bg-ink-0 p-6 md:p-8"
+      className={`border-l-4 bg-ink-0 p-6 md:p-8 ${acc.bar}`}
     >
-      <header className="flex items-center justify-between">
+      <header className="flex items-center justify-between gap-3">
         <span className="mono-caption tabular">
+          <span className="mr-2 inline-block w-6 text-center text-[14px] text-bone-2">{acc.emoji}</span>
           {String(index + 1).padStart(2, "0")} — {agent.agent}
         </span>
         <span className={`font-sans text-[14px] font-medium ${tone}`}>{lean}</span>
@@ -833,6 +1016,7 @@ function AgentPanel({ agent, index }: { agent: any; index: number }) {
 }
 
 function PlanTable({ plan, fallback }: { plan?: any[]; fallback?: string[] }) {
+  const [checked, setChecked] = useState<Record<number, boolean>>({})
   const rows: Array<{ day: string; action: string; success?: string; fail?: string }> = (() => {
     if (Array.isArray(plan) && plan.length > 0) {
       return plan.map((s: any) => ({
@@ -855,9 +1039,17 @@ function PlanTable({ plan, fallback }: { plan?: any[]; fallback?: string[] }) {
     return <p className="mono-caption text-bone-2">No plan supplied. Pick three falsification tests and time-box.</p>
   }
 
+  const doneCount = rows.filter((_, i) => checked[i]).length
+
   return (
     <div className="border border-bone-0/10">
-      <div className="mono-caption tabular grid grid-cols-[80px_1fr_1fr_1fr] gap-4 border-b border-bone-0/10 bg-bone-0/[0.02] px-6 py-3">
+      <div className="flex flex-wrap items-center justify-between gap-3 border-b border-bone-0/10 bg-bone-0/[0.02] px-6 py-3">
+        <span className="mono-caption tabular text-bone-2">
+          Progress · {doneCount}/{rows.length}
+        </span>
+      </div>
+      <div className="mono-caption tabular grid grid-cols-[52px_80px_1fr_1fr_1fr] gap-4 border-b border-bone-0/10 bg-bone-0/[0.02] px-6 py-3 md:grid-cols-[52px_88px_1fr_1fr_1fr]">
+        <span className="sr-only">Done</span>
         <span>Day</span>
         <span>Action</span>
         <span>Success if</span>
@@ -867,10 +1059,22 @@ function PlanTable({ plan, fallback }: { plan?: any[]; fallback?: string[] }) {
         {rows.map((r, i) => (
           <li
             key={i}
-            className="grid grid-cols-[80px_1fr_1fr_1fr] items-baseline gap-4 px-6 py-5 text-[14px] leading-snug"
+            className="grid grid-cols-[52px_80px_1fr_1fr_1fr] items-baseline gap-4 px-6 py-5 text-[14px] leading-snug md:grid-cols-[52px_88px_1fr_1fr_1fr]"
           >
+            <button
+              type="button"
+              onClick={() => setChecked((prev) => ({ ...prev, [i]: !prev[i] }))}
+              aria-pressed={checked[i] ?? false}
+              className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-sm border text-[12px] transition-colors ${
+                checked[i]
+                  ? "border-verdict-build bg-verdict-build/15 text-verdict-build"
+                  : "border-bone-0/15 text-bone-2 hover:border-bone-0/25"
+              }`}
+            >
+              {checked[i] ? "✓" : ""}
+            </button>
             <span className="mono-caption tabular">{r.day}</span>
-            <span className="text-bone-0">{r.action}</span>
+            <span className={`text-bone-0 ${checked[i] ? "text-bone-2 line-through" : ""}`}>{r.action}</span>
             <span className="text-verdict-build/90">{r.success || "—"}</span>
             <span className="text-verdict-kill/90">{r.fail || "—"}</span>
           </li>

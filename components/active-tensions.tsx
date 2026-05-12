@@ -3,6 +3,7 @@
 import { motion } from "framer-motion"
 import { ease } from "@/lib/motion"
 import { ChamberLink } from "@/components/chamber"
+import { memoResultHref } from "@/lib/founder-workflow/memo-links"
 import { type Tension } from "@/lib/cognition"
 
 /**
@@ -27,7 +28,7 @@ export function ActiveTensions({ tensions }: { tensions: Tension[] }) {
         <div>
           <p className="mono-caption text-ember/70">active tensions</p>
           <h2 className="mt-3 font-serif text-[clamp(28px,3.4vw,44px)] font-light leading-[1.1] tracking-[-0.025em] text-bone-0">
-            What's pulling at your thinking.
+            Active tensions ({tensions.length}) — what&apos;s pulling at your thinking.
           </h2>
         </div>
         <span className="mono-caption tabular text-bone-2">
@@ -62,8 +63,16 @@ function TensionCard({ tension, index }: { tension: Tension; index: number }) {
       className="group relative bg-ink-0"
     >
       <ChamberLink
-        href={`/dashboard/validate?ideaId=${encodeURIComponent(tension.ideaId)}`}
-        className="block p-8 transition-[transform,box-shadow,background-color] duration-500 hover:scale-[1.01] hover:bg-ink-1/60 hover:shadow-[0_22px_60px_-40px_rgb(23_26_31_/_0.14)] md:p-10"
+        href={memoResultHref(tension)}
+        className={`block border-l-4 p-8 transition-[transform,box-shadow,background-color] duration-500 hover:scale-[1.01] hover:bg-ink-1/60 hover:shadow-[0_22px_60px_-40px_rgb(23_26_31_/_0.14)] md:p-10 ${
+          tension.kind === "conviction"
+            ? "border-verdict-build"
+            : tension.kind === "risk"
+              ? "border-verdict-pivot"
+                : tension.kind === "dependency"
+                ? "border-bone-2"
+                : "border-verdict-kill"
+        }`}
       >
         {/* Label — small, ember-tinted */}
         <div className="flex items-center gap-3">

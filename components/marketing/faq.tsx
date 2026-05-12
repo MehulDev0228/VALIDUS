@@ -22,6 +22,10 @@ const QAS: QA[] = [
     a: "To keep output legible instead of endlessly re-rolling drafts. Iterate on the hypothesis between runs.",
   },
   {
+    q: "How much can I run for free?",
+    a: "You get 2 free runs per day after sign-in — private memo history, no card required. Limits reset on a rolling window.",
+  },
+  {
     q: "Do I need an account?",
     a: "The full memo flow uses a simple account so filings have a destination. Starter surfaces may differ; check the Validate page.",
   },
@@ -36,6 +40,10 @@ const QAS: QA[] = [
   {
     q: "What happens after BUILD or PIVOT?",
     a: "You execute the checklist, log what broke or held, tighten the brief, and rerun. History stays searchable when you're signed in.",
+  },
+  {
+    q: "Can I share a memo or publish it?",
+    a: "After you complete a run while signed in, the results page includes read-only sharing: copy a public memo URL, optionally list it on Explore, and draft a short Twitter-style thread from the memo — all optional.",
   },
 ]
 

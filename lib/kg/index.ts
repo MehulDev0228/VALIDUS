@@ -213,7 +213,10 @@ function estimateTamSamSom(
     const samBillions = tamBillions * 0.35
     const somBillions = samBillions * 0.08
 
-    const TAM = `Heuristic TAM: value of B2B invoices issued between Indian MSMEs / SMEs and mid–large buyers (~$${tamBillions.toFixed(0)}B+/year).`
+    const ill =
+      "Illustrative sizing only — not primary research. Sanity-check with customers + external data before trusting headlines."
+
+    const TAM = `${ill}\n\nHeuristic TAM: value of B2B invoices issued between Indian MSMEs / SMEs and mid–large buyers (~$${tamBillions.toFixed(0)}B+/year).`
     const SAM = `SAM: flows in verticals where delayed payments are systemic (logistics, manufacturing, construction) (~$${samBillions.toFixed(0)}B+/year).`
     const SOM = `SOM: portion of those flows you could realistically score or influence in 5 years via partners (ERPs, banks, marketplaces) (~$${somBillions.toFixed(1)}B+/year).`
 
@@ -245,14 +248,18 @@ function estimateTamSamSom(
 
   const formatBillions = (value: number): string => `$${(value / 1_000_000_000).toFixed(0)}B+`
 
+  const ill =
+    "Illustrative sizing only — coarse bucket math, not research-grade market sizing."
+
   const assumptions: string[] = [
+    ill,
     `TAM inferred from coarse industry bucket for ${idea.industry || "other"}.`,
     "SAM assumed at ~30% of TAM for reachable segments.",
     "SOM assumed at ~5% of SAM as a 5-year capture for a new entrant.",
   ]
 
   return {
-    TAM: `${formatBillions(baseTAM)} overall market (heuristic est.)`,
+    TAM: `${ill}\n\n${formatBillions(baseTAM)} overall market (heuristic est.)`,
     SAM: `${formatBillions(sam)} serviceable segment (heuristic est.)`,
     SOM: `${formatBillions(som)} realistically obtainable (5y est.)`,
     confidence: "low",

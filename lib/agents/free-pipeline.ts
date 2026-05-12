@@ -2,7 +2,9 @@ import { IdeaInput } from "@/lib/schemas/idea"
 import { FreeValidationResponse, FreeValidationResponseSchema } from "@/lib/schemas/free-validation"
 import type { KGItem } from "@/lib/kg"
 import { queryKnowledgeGraph } from "@/lib/kg"
-import { generateGeminiJson } from "@/lib/llm/gemini-json"
+import { generateGeminiJson, generateGeminiJsonForResearch } from "@/lib/llm/gemini-json"
+
+export type PipelineProgress = { phase: string; label: string }
 import type { ArchetypeLens, StartupArchetype } from "@/lib/agents/category-lens"
 import { agentVerdictSpreadCount, diversifyRiskLines, getArchetypeLens } from "@/lib/agents/category-lens"
 import { buildMechanismAwareComparables, filterPlausibleKgItems } from "@/lib/intelligence/analogue-guard"
@@ -56,7 +58,7 @@ import {
   diversifyExecutionLexicon,
   diversifyMemoLanguage,
 } from "@/lib/intelligence/language-diversity"
-import { classifyIndustryFromIdea } from "@/lib/intelligence/industry-classification"
+import { classifyIndustryFromIdea, classifyIndustryFromIdeaWithLlm } from "@/lib/intelligence/industry-classification"
 import { formatDomainPackForPrompt } from "@/lib/intelligence/domain-packs"
 import { asymmetryInstructionForIndustry, domainLanguageContract } from "@/lib/intelligence/domain-vocabulary"
 import { filterInevitabilitySignalsForIndustry } from "@/lib/intelligence/domain-signal-filter"
@@ -119,6 +121,71 @@ function classifyFromDecision(decision: AgentLean): FreeValidationResponse["clas
   if (decision === "BUILD") return "high"
   if (decision === "PIVOT") return "possible"
   return "low"
+}
+
+function clampScoreDim(n: number): number {
+  return Math.max(0, Math.min(10, Math.round(n)))
+}
+
+/** Heuristic severity for memo UI — no extra LLM calls. */
+function classifyRiskSeverity(line: string): "critical" | "high" | "medium" {
+  const t = `${line}`.toLowerCase()
+  if (/\b(regulatory|legal|compliance|litigation|funding|sec\s|gdpr|hipaa)\b/i.test(t)) return "critical"
+  if (/\b(competition|competing|pricing|timing|substitute|substitutes)\b/i.test(t)) return "high"
+  return "medium"
+}
+
+function deriveScoreBreakdownFromBand(
+  opportunityScore: number,
+  decision: AgentLean,
+  salt: number,
+): NonNullable<FreeValidationResponse["scoreBreakdown"]> {
+  const mid = Math.max(0, Math.min(100, opportunityScore)) / 10
+  const j = (k: number) => (((salt >>> (k * 4)) % 19) - 9) / 10
+  const tilt =
+    decision === "BUILD" ? 0.35 : decision === "KILL" ? -0.45 : 0
+  const weights = {
+    market: 0.22,
+    competition: 0.18,
+    monetization: 0.18,
+    execution: 0.22,
+    founderFit: 0.2,
+  }
+  const dims = {
+    market: clampScoreDim(mid + j(1) * 0.7 + tilt * 0.25),
+    competition: clampScoreDim(mid + j(2) * 0.8 - tilt * 0.15),
+    monetization: clampScoreDim(mid + j(3) * 0.65 + tilt * 0.1),
+    execution: clampScoreDim(mid + j(4) * 0.75 - tilt * 0.2),
+    founderFit: clampScoreDim(mid + j(5) * 0.85),
+  }
+  return {
+    ...dims,
+    weights,
+    driversUp: [],
+    driversDown: [],
+    fixImpacts: [],
+  }
+}
+
+function extractAgentDissent(
+  outputs: Array<{ agent?: string; verdictLean?: AgentLean; insights?: string[] }>,
+  finalDecision: AgentLean,
+): NonNullable<FreeValidationResponse["agentDissent"]> {
+  const out: NonNullable<FreeValidationResponse["agentDissent"]> = []
+  for (const o of outputs) {
+    const lean = (o.verdictLean || "PIVOT") as AgentLean
+    if (lean === finalDecision) continue
+    const summary =
+      (Array.isArray(o.insights) && o.insights[0] ? String(o.insights[0]) : "").trim() ||
+      "Panel lean diverged from the final band on this pass."
+    out.push({
+      agent: String(o.agent || "Specialist"),
+      verdictLean: lean,
+      dissentSummary: summary.slice(0, 320),
+    })
+    if (out.length >= 3) break
+  }
+  return out
 }
 
 function enforceHardLanguage(lines: string[]): string[] {
@@ -621,6 +688,29 @@ export function heuristicReport(idea: IdeaInput, kgCandidates: KGItem[]): FreeVa
         verdictLean: "KILL",
       },
     ],
+    scoreBreakdown: deriveScoreBreakdownFromBand(
+      heuristicMetrics.opportunityScore,
+      decision,
+      seed ^
+        hashSeed(topRisks.join("|")) ^
+        hashSeed(brutalSummaryHeuristic.slice(0, 40)),
+    ),
+    annotatedRisks: topRisks.map((text) => ({ text, severity: classifyRiskSeverity(text) })),
+    agentDissent: extractAgentDissent(
+      [
+        {
+          agent: "MarketResearchAgent",
+          verdictLean: "PIVOT",
+          insights: heuristicRiskInsights.marketLines,
+        },
+        {
+          agent: "RiskFailureAgent",
+          verdictLean: "KILL",
+          insights: heuristicRiskInsights.riskLines,
+        },
+      ],
+      decision,
+    ),
     whyThisIdeaWillLikelyFail: topRisks,
     fastestWayToProveWrong48h: fastPlan,
     executionPlan: fastPlan,
@@ -788,8 +878,12 @@ ResearchInsights: ${JSON.stringify(researchInsights)}
 ContradictionHints: ${JSON.stringify(contradictionHints)}`
 }
 
-export async function runFreeValidationPipeline(idea: IdeaInput): Promise<FreeValidationResponse> {
-  const industryClassification = classifyIndustryFromIdea(idea)
+export async function runFreeValidationPipeline(
+  idea: IdeaInput,
+  options?: { onProgress?: (p: PipelineProgress) => void },
+): Promise<FreeValidationResponse> {
+  const onProg = options?.onProgress
+  const industryClassification = await classifyIndustryFromIdeaWithLlm(idea)
   const businessDNA = await extractBusinessDNA(idea, industryClassification)
   const domainRoutingBlock = [
     `INDUSTRY_CLASSIFICATION primary=${industryClassification.primaryVertical} secondary=${industryClassification.secondaryVertical ?? "none"} confidence=${industryClassification.confidence01.toFixed(2)} businessModel=${industryClassification.businessModel} operationalStructure=${industryClassification.operationalStructure} complexity=${industryClassification.complexityType} buyer=${industryClassification.buyerType} deployment=${industryClassification.deploymentModel}`,
@@ -847,6 +941,8 @@ export async function runFreeValidationPipeline(idea: IdeaInput): Promise<FreeVa
     const riskPool = combinedRiskPool(lens)
     const reasonPool = reasonReplacementPool(lens)
 
+    onProg?.({ phase: "context", label: "Extracting structured idea context" })
+
     const contextRaw = await generateGeminiJson(
       `${domainRoutingBlock}
 
@@ -885,7 +981,12 @@ Input: ${JSON.stringify(idea)}`,
     }
     const country = inferCountry(idea)
 
-    const researchRaw = await generateGeminiJson(
+    onProg?.({
+      phase: "research",
+      label: "Research layer · grounded web search when enabled",
+    })
+
+    const researchPack = await generateGeminiJsonForResearch(
       `${domainRoutingBlock}
 
 VERDIKT Nexus Orchestrator — consulting-grade, archetype-native research.
@@ -945,6 +1046,8 @@ RULE: If FILTERED_KG_ANALOGUES is empty DO NOT hallucinate recognizable company 
 
 If empirical data is scarce, produce high-fidelity simulated hypotheses and label sourceType gemini-simulated.`,
     )
+    const researchGroundingUsed = researchPack.groundingUsed
+    const researchRaw = researchPack.parsed
     const researchInsights = Array.isArray(researchRaw?.researchInsights)
       ? researchRaw.researchInsights.map((insight: ResearchInsightLite, idx: number) =>
           normalizeResearchInsight(insight, country, idx),
@@ -980,6 +1083,8 @@ If empirical data is scarce, produce high-fidelity simulated hypotheses and labe
       domainRoutingBlock,
     }
 
+    onProg?.({ phase: "agents_wave1", label: "Market · competitor · monetization specialists" })
+
     const wave1Outputs = await Promise.all(
       wave1.map(async (role) => {
         const raw = await generateGeminiJson(
@@ -994,6 +1099,8 @@ If empirical data is scarce, produce high-fidelity simulated hypotheses and labe
     )
 
     const repeatFingerprint = insightFingerprint(wave1Outputs)
+
+    onProg?.({ phase: "agents_wave2", label: "Feasibility · ICP · risk · validation strategy" })
 
     const wave2Outputs = await Promise.all(
       wave2.map(async (role) => {
@@ -1037,6 +1144,8 @@ If empirical data is scarce, produce high-fidelity simulated hypotheses and labe
       spreadCount < 3
         ? `VERDICT_SPREAD_ALERT (${spreadCount} unique leans) — escalate explicit disagreement inside topReasons + ifFailsBecause.`
         : `VERDICT_SPREAD_OK (${spreadCount}) — reconcile tension without collapsing into generic skepticism.`
+
+    onProg?.({ phase: "judge", label: "Final judge · verdict · execution planner" })
 
     const judgeRaw = await generateGeminiJson(
       `${domainRoutingBlock}
@@ -1223,6 +1332,8 @@ IdeaContext=${JSON.stringify(ideaContext)}`,
       ),
     )
 
+    onProg?.({ phase: "finalize", label: "Score calibration · language guards" })
+
     const verdictMetrics = decompressValidationMetrics({
       opportunityScoreRaw: Number(judgeRaw?.opportunityScore ?? 50),
       confidenceRaw: Number(judgeRaw?.confidence ?? 0.65),
@@ -1280,7 +1391,20 @@ IdeaContext=${JSON.stringify(ideaContext)}`,
         needsReviewReason: null,
         enginePath: "gemini_pipeline",
         businessDNA,
+        researchGrounding: researchGroundingUsed,
       },
+      scoreBreakdown: deriveScoreBreakdownFromBand(
+        verdictMetrics.opportunityScore,
+        decision,
+        diversificationSeed ^
+          hashSeed(curatedTopRisks.join("|")) ^
+          hashSeed(brutalSummary.slice(0, 48)),
+      ),
+      annotatedRisks: curatedTopRisks.map((text) => ({
+        text,
+        severity: classifyRiskSeverity(text),
+      })),
+      agentDissent: extractAgentDissent(outputs, decision),
     }
     response = sanitizeFreeValidationLanguage(response, industryClassification)
     response = attachCognitionAudit(response, industryClassification)

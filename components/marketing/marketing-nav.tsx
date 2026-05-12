@@ -74,6 +74,7 @@ export function MarketingNav() {
           <NavLink href="#features-bento">Product</NavLink>
           <NavLink href="#how-it-works">Workflow</NavLink>
           <NavLink href="#sample-memo">Sample</NavLink>
+          <NavLink href="/explore">Explore</NavLink>
           <DropdownMenu>
             <DropdownMenuTrigger
               className={cn(
@@ -146,6 +147,11 @@ export function MarketingNav() {
               <DrawerClose asChild>
                 <Link href="/product/more" className="rounded-lg px-3 py-3 text-lg">
                   {microcopy.nav.examplesDeep}
+                </Link>
+              </DrawerClose>
+              <DrawerClose asChild>
+                <Link href="/explore" className="rounded-lg px-3 py-3 text-lg font-medium">
+                  Explore
                 </Link>
               </DrawerClose>
               <DrawerClose asChild>

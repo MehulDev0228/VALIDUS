@@ -86,20 +86,22 @@ export function MemoProductSignals({
     const root = rootRef.current
     if (!root || !ideaId || !user?.id) return
 
+    const dwellMap = dwellRef.current
+
     const obs = new IntersectionObserver(
       (entries) => {
         const now = Date.now()
         for (const en of entries) {
           const id = (en.target as HTMLElement).dataset.piSection
           if (!id) continue
-          const st = dwellRef.current.get(id) ?? { start: now, visible: false }
+          const st = dwellMap.get(id) ?? { start: now, visible: false }
           if (en.isIntersecting) {
             st.visible = true
             st.start = now
-            dwellRef.current.set(id, st)
+            dwellMap.set(id, st)
           } else if (st.visible) {
             const ms = now - st.start
-            dwellRef.current.delete(id)
+            dwellMap.delete(id)
             if (ms >= DWELL_FLUSH_MS) {
               enqueue({ kind: "section_dwell", sectionId: id, dwellMs: Math.min(ms, 600_000) })
             }
@@ -114,14 +116,14 @@ export function MemoProductSignals({
     return () => {
       obs.disconnect()
       const now = Date.now()
-      for (const [id, st] of dwellRef.current.entries()) {
+      for (const [id, st] of dwellMap.entries()) {
         if (!st.visible) continue
         const ms = now - st.start
         if (ms >= DWELL_FLUSH_MS) {
           enqueue({ kind: "section_dwell", sectionId: id, dwellMs: Math.min(ms, 600_000) })
         }
       }
-      dwellRef.current.clear()
+      dwellMap.clear()
     }
   }, [ideaId, user?.id, enqueue])
 

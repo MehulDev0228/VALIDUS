@@ -1,4 +1,5 @@
 import type { IdeaInput } from "@/lib/schemas/idea"
+import { tryGeminiIndustryClassification } from "@/lib/intelligence/gemini-industry-classify"
 import type {
   BusinessModelClass,
   BuyerType,
@@ -420,5 +421,29 @@ export function classifyIndustryFromIdea(idea: IdeaInput): IndustryClassificatio
     buyerType: inferBuyer(t, primary),
     deploymentModel: inferDeployment(t, primary),
     rationale,
+  }
+}
+
+/**
+ * Heuristic tags + optional Gemini pass for primary/secondary verticals (used by free validation pipeline).
+ * Falls back silently to {@link classifyIndustryFromIdea} on any failure.
+ */
+export async function classifyIndustryFromIdeaWithLlm(idea: IdeaInput): Promise<IndustryClassification> {
+  const base = classifyIndustryFromIdea(idea)
+  const g = await tryGeminiIndustryClassification(idea)
+  if (!g) return base
+
+  const t = corpus(idea)
+  return {
+    ...base,
+    primaryVertical: g.primaryVertical,
+    secondaryVertical: g.secondaryVertical ?? base.secondaryVertical,
+    confidence01: Math.min(0.92, Math.max(base.confidence01, g.confidence01)),
+    businessModel: inferBusinessModel(t, g.primaryVertical),
+    operationalStructure: inferOperationalStructure(t, g.primaryVertical),
+    complexityType: inferComplexity(t, g.primaryVertical),
+    buyerType: inferBuyer(t, g.primaryVertical),
+    deploymentModel: inferDeployment(t, g.primaryVertical),
+    rationale: `llm:${g.rationale} | ${base.rationale}`,
   }
 }

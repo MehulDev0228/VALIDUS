@@ -2,6 +2,8 @@
 
 import { useState } from "react"
 import { motion } from "framer-motion"
+import { RadarBreakdown } from "@/components/radar-breakdown"
+import { ScoreGauge } from "@/components/score-gauge"
 import { ease, timing } from "@/lib/motion"
 
 /**
@@ -34,7 +36,11 @@ export function MemoExperience() {
           <div className="md:col-span-5 md:pb-2">
             <p className="marketing-body max-w-[560px] md:pb-2">
               Verdict strip, seven angle rows, tensions, a compression breakdown,
-              and a 48-hour test list. Illustrative copy only.
+              and a 48-hour test list. After a real run you can copy a share link and optionally list on{" "}
+              <a href="/explore" className="text-bone-1 underline underline-offset-4 hover:text-ember">
+                Explore
+              </a>
+              . Illustrative copy here only.
             </p>
           </div>
         </motion.div>
@@ -50,19 +56,19 @@ export function MemoExperience() {
         >
           <DocHeader />
 
-          <div className="border-t border-white/[0.08] py-10 md:py-12">
+          <div className="border-t border-white/[0.08] bg-ink-0/[0.35] py-10 md:-mx-10 md:px-10 md:py-12">
             <DecisionFrame />
           </div>
 
-          <div className="border-t border-white/[0.08] py-10 md:py-12">
+          <div className="border-t border-white/[0.08] py-10 md:-mx-10 md:px-10 md:py-12">
             <ContrastingReads />
           </div>
 
-          <div className="border-t border-white/[0.08] py-10 md:py-12">
+          <div className="border-t border-white/[0.08] bg-ink-0/[0.22] py-10 md:-mx-10 md:px-10 md:py-12">
             <OpportunityDecomposition />
           </div>
 
-          <div className="border-t border-white/[0.08] py-10 md:py-12">
+          <div className="border-t border-white/[0.08] py-10 md:-mx-10 md:px-10 md:py-12">
             <PressureHorizon />
           </div>
 
@@ -103,20 +109,25 @@ function DocHeader() {
 function DecisionFrame() {
   return (
     <div>
-        <p className="doc-kicker">Verdict</p>
+      <p className="doc-kicker">Verdict</p>
 
       <div className="mt-8 grid grid-cols-1 gap-10 md:grid-cols-[auto_1fr] md:gap-14">
         {/* Verdict — sized to the page, not the wall. */}
-        <div>
-          <div className="flex items-baseline gap-3">
-            <span className="h-2.5 w-2.5 translate-y-[-6px] rounded-full bg-verdict-build" />
-            <span className="font-sans text-[56px] font-medium leading-none tracking-[-0.025em] text-verdict-build md:text-[72px]">
-              BUILD
-            </span>
+        <div className="rounded-xl bg-gradient-to-br from-verdict-build/[0.14] via-ink-1/30 to-transparent p-6 ring-1 ring-white/[0.06] md:p-8">
+          <div className="flex flex-col gap-6 sm:flex-row sm:items-start sm:gap-8">
+            <div>
+              <div className="flex items-baseline gap-3">
+                <span className="h-2.5 w-2.5 translate-y-[-6px] rounded-full bg-verdict-build shadow-[0_0_20px_rgb(52_211_153_/_0.45)]" />
+                <span className="font-sans text-[56px] font-medium leading-none tracking-[-0.025em] text-verdict-build md:text-[72px]">
+                  BUILD
+                </span>
+              </div>
+              <p className="mt-3 text-[14px] leading-[1.5] text-bone-2">
+                confidence: <span className="text-bone-0">moderate-high</span>
+              </p>
+            </div>
+            <ScoreGauge score={72} verdict="BUILD" size={100} className="mx-auto sm:mx-0" />
           </div>
-          <p className="mt-3 text-[14px] leading-[1.5] text-bone-2">
-            confidence: <span className="text-bone-0">moderate-high</span>
-          </p>
         </div>
 
         {/* Frame body — hairline divided, no card cells */}
@@ -245,6 +256,13 @@ function OpportunityDecomposition() {
     { label: "Substitution risk",  v: 42, body: "Clio plus templates remains a credible 70% solution at a lower price" },
     { label: "Capital efficiency", v: 56, body: "integration surface is heavy, but each integration thickens the moat" },
   ]
+  const radarSample = {
+    market: 7.2,
+    competition: 5.8,
+    monetization: 6.5,
+    execution: 8.1,
+    founderFit: 4.9,
+  }
   return (
     <div>
       <div className="flex items-end justify-between">
@@ -252,32 +270,38 @@ function OpportunityDecomposition() {
         <span className="tabular text-[13px] text-bone-2">Composite · 72/100</span>
       </div>
 
-      <ul className="mt-8 space-y-6">
-        {factors.map((f, i) => (
-          <motion.li
-            key={f.label}
-            initial={{ opacity: 0, y: 4 }}
-            whileInView={{ opacity: 1, y: 0 }}
-            viewport={{ once: true, margin: "-15%" }}
-            transition={{ duration: timing.section.min, delay: i * 0.04, ease: ease.editorial }}
-          >
-            <div className="flex items-baseline justify-between gap-4">
-              <span className="text-[15.5px] text-bone-0">{f.label}</span>
-              <span className="tabular text-[13px] text-bone-1">{f.v}/100</span>
-            </div>
-            <div className="mt-2.5 h-px w-full bg-bone-0/[0.1]">
-              <motion.div
-                initial={{ width: 0 }}
-                whileInView={{ width: `${f.v}%` }}
-                viewport={{ once: true, margin: "-15%" }}
-                transition={{ duration: timing.section.max, delay: 0.1 + i * 0.05, ease: ease.editorial }}
-                className={`h-px ${f.v >= 60 ? "bg-verdict-build/80" : f.v >= 50 ? "bg-verdict-pivot/80" : "bg-ash/70"}`}
-              />
-            </div>
-            <p className="mt-2.5 text-[14px] leading-[1.5] text-bone-2">{f.body}</p>
-          </motion.li>
-        ))}
-      </ul>
+      <div className="mt-8 grid grid-cols-1 items-start gap-10 lg:grid-cols-[1fr_minmax(220px,280px)] lg:gap-12">
+        <ul className="space-y-6">
+          {factors.map((f, i) => (
+            <motion.li
+              key={f.label}
+              initial={{ opacity: 0, y: 4 }}
+              whileInView={{ opacity: 1, y: 0 }}
+              viewport={{ once: true, margin: "-15%" }}
+              transition={{ duration: timing.section.min, delay: i * 0.04, ease: ease.editorial }}
+            >
+              <div className="flex items-baseline justify-between gap-4">
+                <span className="text-[15.5px] text-bone-0">{f.label}</span>
+                <span className="tabular text-[13px] text-bone-1">{f.v}/100</span>
+              </div>
+              <div className="mt-2.5 h-px w-full bg-bone-0/[0.1]">
+                <motion.div
+                  initial={{ width: 0 }}
+                  whileInView={{ width: `${f.v}%` }}
+                  viewport={{ once: true, margin: "-15%" }}
+                  transition={{ duration: timing.section.max, delay: 0.1 + i * 0.05, ease: ease.editorial }}
+                  className={`h-px ${f.v >= 60 ? "bg-verdict-build/80" : f.v >= 50 ? "bg-verdict-pivot/80" : "bg-ash/70"}`}
+                />
+              </div>
+              <p className="mt-2.5 text-[14px] leading-[1.5] text-bone-2">{f.body}</p>
+            </motion.li>
+          ))}
+        </ul>
+        <div className="flex flex-col items-center justify-center rounded-lg border border-white/[0.06] bg-ink-0/40 px-4 py-6 lg:sticky lg:top-28">
+          <p className="mono-caption mb-2 text-center text-bone-2">Five-dimension shape</p>
+          <RadarBreakdown values={radarSample} />
+        </div>
+      </div>
     </div>
   )
 }

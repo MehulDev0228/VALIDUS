@@ -107,6 +107,25 @@ export const FreeValidationResponseSchema = z.object({
   // Optional long-form YC-partner-style memo for richer free reports.
   longReport: LongReportSchema.optional(),
   scoreBreakdown: ScoreBreakdownSchema.optional(),
+  /** Same risks as `topRisks` / `finalVerdict.topRisks`, with presentation tier for UI. */
+  annotatedRisks: z
+    .array(
+      z.object({
+        text: z.string(),
+        severity: z.enum(["critical", "high", "medium"]),
+      }),
+    )
+    .optional(),
+  /** Agents whose panel lean differed from the final verdict band — surfaced for transparency. */
+  agentDissent: z
+    .array(
+      z.object({
+        agent: z.string(),
+        verdictLean: z.enum(["BUILD", "PIVOT", "KILL"]),
+        dissentSummary: z.string(),
+      }),
+    )
+    .optional(),
   topRisks: z.array(z.string()).max(5),
   pivots: z
     .array(
@@ -143,6 +162,8 @@ export const FreeValidationResponseSchema = z.object({
     degraded: z.boolean().optional(),
     degradedReason: z.string().nullable().optional(),
     enginePath: z.enum(["gemini_pipeline", "heuristic_fallback"]).optional(),
+    /** Research step used Gemini + Google Search grounding */
+    researchGrounding: z.boolean().optional(),
     industryClassification: z
       .object({
         primaryVertical: z.string(),

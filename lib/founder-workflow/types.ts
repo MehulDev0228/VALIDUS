@@ -12,6 +12,8 @@ export interface ValidationAttempt {
 export interface DecisionRecord {
   id: string
   ideaId: string
+  /** Canonical validation run id (`run_…`) when known — links ledger rows to memo results + sharing. */
+  runId?: string
   ideaKey?: string
   title?: string
   ideaTitle?: string

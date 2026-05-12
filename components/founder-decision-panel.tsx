@@ -16,6 +16,8 @@ import { microcopy } from "@/lib/microcopy"
 
 type Props = {
   validation: Record<string, unknown>
+  /** Present on `/dashboard/validate/results?run=…` — ties ledger + links to this memo run. */
+  memoRunId?: string | null
 }
 
 type PlannerStep = {
@@ -51,7 +53,7 @@ type RefinedDraft = {
  * The decision history rendered by the dashboard ledger eclipses the old
  * inline list, so this panel intentionally does not duplicate it.
  */
-export function FounderDecisionPanel({ validation }: Props) {
+export function FounderDecisionPanel({ validation, memoRunId }: Props) {
   const op = microcopy.operator
   const router = useRouter()
   const { user } = useAuth()
@@ -72,7 +74,7 @@ export function FounderDecisionPanel({ validation }: Props) {
 
   useEffect(() => {
     ledgerPostedRef.current = false
-  }, [ideaId])
+  }, [ideaId, memoRunId])
 
   const panelVerdict = useMemo((): VerdictLean => {
     const v = (validation as Record<string, unknown> & { finalVerdict?: { decision?: string } })?.finalVerdict?.decision
@@ -188,6 +190,7 @@ export function FounderDecisionPanel({ validation }: Props) {
         opportunityScore: (validation as any).opportunityScore,
         summary: (validation as any).finalVerdict?.brutalSummary ?? (validation as any).summary,
         timestamp: createdAt,
+        ...(memoRunId ? { runId: memoRunId } : {}),
       }),
     }).catch(() => {})
 
@@ -211,7 +214,7 @@ export function FounderDecisionPanel({ validation }: Props) {
       }).catch(() => {})
     }
     void refreshAttempts()
-  }, [validation, ideaId, effectiveInput, refreshAttempts, user?.id])
+  }, [validation, ideaId, effectiveInput, refreshAttempts, user?.id, memoRunId])
 
   const planner = (validation as any).executionPlanner48h as PlannerStep[] | undefined
 

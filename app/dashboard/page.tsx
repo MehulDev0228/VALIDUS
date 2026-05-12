@@ -10,6 +10,8 @@ import { ThoughtStream } from "@/components/thought-stream"
 import { ActiveTensions } from "@/components/active-tensions"
 import { IdeaGraveyard } from "@/components/idea-graveyard"
 import { MemoArchiveSearch } from "@/components/memo-archive-search"
+import { FounderPulseCard } from "@/components/founder-pulse-card"
+import { DashboardWorkspaceTools } from "@/components/dashboard-workspace-tools"
 import { ChamberLink } from "@/components/chamber"
 import { AnimatedStat } from "@/components/marketing/animated-stat"
 import { Skeleton } from "@/components/ui/skeleton"
@@ -38,6 +40,7 @@ export default function DashboardPage() {
   const [hydrated, setHydrated] = useState(false)
   const [usage, setUsage] = useState<{ used: number; limit: number; resetInSeconds: number } | null>(null)
   const [draft, setDraft] = useState("")
+  const [draftPlaceholderIdx, setDraftPlaceholderIdx] = useState(0)
   const [fmBusy, setFmBusy] = useState(true)
   const [fm, setFm] = useState<{
     journeyLines: string[]
@@ -126,9 +129,11 @@ export default function DashboardPage() {
             opportunityScore?: number
             summary?: string
             timestamp: string
+            runId?: string
           }) => ({
             id: d.id,
             ideaId: d.ideaId,
+            runId: d.runId,
             ideaTitle: d.ideaTitle,
             title: d.ideaTitle,
             verdict: d.verdict,
@@ -159,6 +164,25 @@ export default function DashboardPage() {
   }, [records])
 
   const livingStream = useMemo(() => merged.filter((r) => r.verdict !== "KILL"), [merged])
+
+  const draftPlaceholders = useMemo(
+    () => [
+      "What if there was a way to…",
+      "I keep thinking about…",
+      "The problem with X is…",
+      "Buyers keep telling me…",
+    ],
+    [],
+  )
+
+  useEffect(() => {
+    if (draft.trim().length > 0) return
+    if (usage != null && usage.used >= usage.limit) return
+    const id = window.setInterval(() => {
+      setDraftPlaceholderIdx((i) => (i + 1) % draftPlaceholders.length)
+    }, 3000)
+    return () => clearInterval(id)
+  }, [draft, usage, draftPlaceholders.length])
   const tensions = useMemo(() => deriveActiveTensions(merged), [merged])
   const contextLine = useMemo(() => whereYouLeftOff(merged), [merged])
 
@@ -213,8 +237,13 @@ export default function DashboardPage() {
   return (
     <div className="min-h-screen bg-ink-0 text-bone-0">
       <DashboardNav />
+      <DashboardWorkspaceTools />
 
       <main className="mx-auto max-w-[1080px] px-6 pb-32 pt-12 md:px-12 md:pt-20">
+        <div className="mb-14 md:mb-16">
+          <FounderPulseCard records={merged} />
+        </div>
+
         {/* ----- Where your thinking left off ----- */}
         <motion.section
           initial={{ opacity: 0, y: 8 }}
@@ -265,20 +294,25 @@ export default function DashboardPage() {
               placeholder={
                 limitReached
                   ? microcopy.dashboard.quickBriefPlaceholderDisabled
-                  : microcopy.dashboard.quickBriefPlaceholder
+                  : draftPlaceholders[draftPlaceholderIdx]
               }
-              className="mt-6 w-full resize-none border-0 bg-transparent font-serif text-[clamp(22px,2.8vw,36px)] font-light leading-[1.25] tracking-[-0.02em] text-bone-0 placeholder:text-bone-2/40 focus:outline-none disabled:opacity-40"
+              className="mt-6 w-full resize-none border-0 border-b border-transparent bg-transparent pb-2 font-serif text-[clamp(22px,2.8vw,36px)] font-light leading-[1.25] tracking-[-0.02em] text-bone-0 placeholder:text-bone-2/40 transition-[border-color,box-shadow] focus:border-ember/35 focus:outline-none focus:shadow-[0_12px_36px_-18px_rgb(6_182_212_/_0.35)] disabled:opacity-40"
               autoFocus
             />
 
             <div className="mt-8 flex flex-wrap items-center justify-between gap-3 border-t border-bone-0/[0.08] pt-5">
-              <span className="mono-caption tabular text-bone-2 inline-flex flex-wrap items-baseline gap-x-1.5">
+              <motion.span
+                initial={false}
+                animate={{ opacity: draft.length > 0 ? 1 : 0 }}
+                transition={{ duration: 0.3 }}
+                className="mono-caption tabular text-bone-2 inline-flex flex-wrap items-baseline gap-x-1.5"
+              >
                 <span className="inline-flex items-baseline gap-1">
                   <AnimatedStat value={draft.length} className="tabular text-bone-2" />
                   <span>chars</span>
                 </span>
                 <span className="text-bone-2/60">· ⌘⏎ when ready</span>
-              </span>
+              </motion.span>
               <motion.button
                 type="button"
                 onClick={handleQuickFile}
@@ -304,11 +338,13 @@ export default function DashboardPage() {
 
         {/* ----- Thought Stream ----- */}
         <section className="mt-24 md:mt-32">
+          <VerdictDistributionStrip records={merged} />
           <header className="mb-10 flex items-end justify-between border-b border-bone-0/[0.08] pb-6">
             <div>
               <p className="mono-caption text-bone-2">{microcopy.dashboard.ledgerEyebrow}</p>
               <h2 className="mt-3 font-serif text-[clamp(28px,3.4vw,44px)] font-light leading-[1.1] tracking-[-0.025em] text-bone-0">
-                {microcopy.dashboard.ledgerTitle}
+                {microcopy.dashboard.ledgerTitle}{" "}
+                <span className="whitespace-nowrap text-bone-2/90 tabular">({livingStream.length})</span>
               </h2>
             </div>
             <ChamberLink href="/dashboard/validate" className="tab-cta hidden md:inline-flex">
@@ -354,6 +390,8 @@ export default function DashboardPage() {
           </section>
         )}
       </main>
+
+      <KeyboardShortcutsHint />
     </div>
   )
 }
@@ -396,10 +434,81 @@ function ResetCountdown({ seconds }: { seconds: number }) {
   )
 }
 
+function VerdictDistributionStrip({ records }: { records: DecisionRecord[] }) {
+  const build = records.filter((r) => r.verdict === "BUILD").length
+  const pivot = records.filter((r) => r.verdict === "PIVOT").length
+  const kill = records.filter((r) => r.verdict === "KILL").length
+  const total = Math.max(1, build + pivot + kill)
+  if (records.length === 0) return null
+  return (
+    <div className="mb-10 rounded-sm border border-bone-0/[0.08] bg-bone-0/[0.02] px-4 py-4 md:px-5">
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <span className="mono-caption text-bone-2">Verdict mix</span>
+        <span className="mono-caption tabular text-bone-2">
+          {build} build · {pivot} pivot · {kill} kill
+        </span>
+      </div>
+      <div className="mt-3 flex h-2 overflow-hidden rounded-full bg-white/[0.06]">
+        <motion.div
+          className="h-full bg-verdict-build"
+          initial={{ width: 0 }}
+          animate={{ width: `${(build / total) * 100}%` }}
+          transition={{ duration: 0.75, ease: [0.22, 1, 0.36, 1] }}
+        />
+        <motion.div
+          className="h-full bg-verdict-pivot"
+          initial={{ width: 0 }}
+          animate={{ width: `${(pivot / total) * 100}%` }}
+          transition={{ duration: 0.75, delay: 0.06, ease: [0.22, 1, 0.36, 1] }}
+        />
+        <motion.div
+          className="h-full bg-verdict-kill"
+          initial={{ width: 0 }}
+          animate={{ width: `${(kill / total) * 100}%` }}
+          transition={{ duration: 0.75, delay: 0.12, ease: [0.22, 1, 0.36, 1] }}
+        />
+      </div>
+    </div>
+  )
+}
+
+function KeyboardShortcutsHint() {
+  const [pulse, setPulse] = useState(false)
+  useEffect(() => {
+    try {
+      if (!localStorage.getItem("fv_dash_kb_seen")) {
+        setPulse(true)
+        localStorage.setItem("fv_dash_kb_seen", "1")
+      }
+    } catch {}
+  }, [])
+  return (
+    <div className="pointer-events-none fixed bottom-6 right-6 z-40">
+      <button
+        type="button"
+        title="⌘⏎ files your brief · Esc closes overlays where supported"
+        onClick={() => setPulse(false)}
+        className={cn(
+          "pointer-events-auto flex h-10 w-10 items-center justify-center rounded-full border border-bone-0/15 bg-ink-1/95 text-[14px] font-medium text-bone-2 shadow-[0_12px_40px_-24px_rgb(0_0_0/_0.55)] backdrop-blur-md transition hover:border-bone-0/25 hover:text-bone-0",
+          pulse && "animate-pulse",
+        )}
+      >
+        ?
+      </button>
+    </div>
+  )
+}
+
 function EmptyStream() {
   return (
     <div className="py-20 text-center md:py-28">
-      <p className="font-serif text-[clamp(22px,2.6vw,32px)] font-light italic leading-[1.3] tracking-[-0.015em] text-bone-1">
+      <div className="flex justify-center">
+        <span className="relative inline-flex h-2.5 w-2.5">
+          <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-ember/35 opacity-75" />
+          <span className="relative inline-flex h-2.5 w-2.5 rounded-full bg-ember/90 shadow-[0_0_18px_rgb(6_182_212_/_0.45)]" />
+        </span>
+      </div>
+      <p className="mt-10 font-serif text-[clamp(22px,2.6vw,32px)] font-light italic leading-[1.3] tracking-[-0.015em] text-bone-1">
         The room is quiet.<br />
         File the first thought when the idea won't leave.
       </p>

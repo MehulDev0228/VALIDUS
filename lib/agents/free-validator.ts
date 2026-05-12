@@ -25,7 +25,10 @@ function withEngineMeta(
   }
 }
 
-export async function runFreeValidation(idea: IdeaInput): Promise<FreeValidationResponse> {
+export async function runFreeValidation(
+  idea: IdeaInput,
+  options?: { onProgress?: (p: { phase: string; label: string }) => void },
+): Promise<FreeValidationResponse> {
   const status = getGeminiEnvStatus()
 
   if (!status.ok) {
@@ -42,7 +45,7 @@ export async function runFreeValidation(idea: IdeaInput): Promise<FreeValidation
   }
 
   try {
-    const result = await runFreeValidationPipeline(idea)
+    const result = await runFreeValidationPipeline(idea, { onProgress: options?.onProgress })
     return withEngineMeta(result, {
       degraded: false,
       degradedReason: null,

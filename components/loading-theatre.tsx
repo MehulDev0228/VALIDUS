@@ -49,10 +49,13 @@ export function LoadingTheatre({
   onCancel,
   finished,
   verdictHint = "BUILD",
+  pipelineHint,
 }: {
   onCancel?: () => void
   finished?: boolean
   verdictHint?: "BUILD" | "PIVOT" | "KILL"
+  /** Live pipeline status from SSE (optional). */
+  pipelineHint?: string | null
 }) {
   const reduce = useReducedMotion()
   const [phase, setPhase] = useState(0)
@@ -127,6 +130,12 @@ export function LoadingTheatre({
           </button>
         )}
       </header>
+
+      {pipelineHint ? (
+        <div className="border-b border-bone-0/[0.06] px-6 py-2 md:px-10" aria-live="polite">
+          <p className="mono-caption text-ember/75">{pipelineHint}</p>
+        </div>
+      ) : null}
 
       {/* Phase progress — warm accents */}
       <div className="grid grid-cols-4 border-b border-bone-0/[0.06]">
@@ -273,24 +282,25 @@ export function LoadingTheatre({
   )
 }
 
+const RESEARCH_STREAM_LINES = [
+  "querying competitive landscape — 18 hits",
+  "country profile: US / segment: SMB engineering",
+  "willingness-to-pay distribution: bimodal",
+  "incumbent overlap: 0.71 — high",
+  "category CAC trend: rising 12% YoY",
+  "search demand: stable, low intent",
+  "buyer budget owner: VP Engineering",
+  "switching cost vs. status quo: 2.1x",
+] as const
+
 function ResearchStream() {
   const [lines, setLines] = useState<string[]>([])
-  const all = [
-    "querying competitive landscape — 18 hits",
-    "country profile: US / segment: SMB engineering",
-    "willingness-to-pay distribution: bimodal",
-    "incumbent overlap: 0.71 — high",
-    "category CAC trend: rising 12% YoY",
-    "search demand: stable, low intent",
-    "buyer budget owner: VP Engineering",
-    "switching cost vs. status quo: 2.1x",
-  ]
   useEffect(() => {
     let i = 0
     const id = setInterval(() => {
-      setLines((prev) => [...prev, all[i % all.length]])
+      setLines((prev) => [...prev, RESEARCH_STREAM_LINES[i % RESEARCH_STREAM_LINES.length]])
       i += 1
-      if (i >= all.length) clearInterval(id)
+      if (i >= RESEARCH_STREAM_LINES.length) clearInterval(id)
     }, 540)
     return () => clearInterval(id)
   }, [])

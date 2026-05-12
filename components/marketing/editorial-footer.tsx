@@ -45,7 +45,9 @@ export function EditorialFooter() {
                   ? "/auth?next=/dashboard/validate"
                   : item === "Examples"
                     ? "/product/more"
-                    : "#sample-memo"
+                    : item === "Explore"
+                      ? "/explore"
+                      : "#sample-memo"
               }
               className="transition-colors hover:text-bone-0"
             >

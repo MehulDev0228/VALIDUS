@@ -3,7 +3,7 @@ import { InteractiveShell } from "@/components/marketing/interactive-shell"
 import { MarketingNav } from "@/components/marketing/marketing-nav"
 import { HeroSplit } from "@/components/marketing/hero-split"
 import { BentoFeatures } from "@/components/marketing/bento-features"
-import { TimelineSteps } from "@/components/marketing/timeline-steps"
+import { ProductFlowStrip } from "@/components/marketing/product-flow-strip"
 import { MemoExperience } from "@/components/marketing/memo-experience"
 import { WhoItsFor } from "@/components/marketing/who-its-for"
 import { FinalCTA } from "@/components/marketing/final-cta"
@@ -18,12 +18,12 @@ const Faq = dynamic(
 export default function HomePage() {
   return (
     <InteractiveShell>
-      <main className="min-h-screen bg-ink-0 text-bone-0">
+      <main className="marketing-page-bg marketing-grain relative min-h-screen bg-ink-0 text-bone-0">
         <MarketingNav />
 
         <HeroSplit />
         <BentoFeatures />
-        <TimelineSteps />
+        <ProductFlowStrip />
         <MemoExperience />
         <WhoItsFor />
         <FinalCTA />

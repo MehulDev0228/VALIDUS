@@ -14,6 +14,85 @@ import { toastRateLimited } from "@/lib/verdict-toast"
 
 const MAX_PER_DAY = 2
 
+/** SSE validation — falls back to POST /api/validate-idea if stream fails. */
+async function fetchValidationViaStream(
+  ideaPayload: Record<string, unknown>,
+  userId: string,
+  fingerprint: string | null,
+  onHint: (s: string) => void,
+): Promise<
+  | { ok: true; idea_id: string; validation_results: unknown }
+  | { ok: false; error: string; code?: string; status?: number }
+> {
+  const res = await fetch("/api/validate-idea/stream", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ idea_data: ideaPayload, user_id: userId, fingerprint }),
+  })
+
+  const ct = res.headers.get("content-type") || ""
+  if (!res.ok || !ct.includes("text/event-stream")) {
+    try {
+      const j = (await res.json()) as { error?: string; code?: string }
+      return {
+        ok: false,
+        error: typeof j?.error === "string" ? j.error : `HTTP ${res.status}`,
+        code: j?.code,
+        status: res.status,
+      }
+    } catch {
+      return { ok: false, error: `HTTP ${res.status}`, status: res.status }
+    }
+  }
+
+  const reader = res.body?.getReader()
+  if (!reader) return { ok: false, error: "No response body" }
+
+  const decoder = new TextDecoder()
+  let buffer = ""
+  let final: { idea_id?: string; validation_results?: unknown } | null = null
+
+  while (true) {
+    const { done, value } = await reader.read()
+    if (done) break
+    buffer += decoder.decode(value, { stream: true })
+    const chunks = buffer.split("\n\n")
+    buffer = chunks.pop() ?? ""
+    for (const ch of chunks) {
+      const trimmed = ch.trim()
+      if (!trimmed.startsWith("data: ")) continue
+      let json: Record<string, unknown>
+      try {
+        json = JSON.parse(trimmed.slice(6)) as Record<string, unknown>
+      } catch {
+        continue
+      }
+      if (json.type === "progress" && typeof json.label === "string") {
+        onHint(json.label)
+      }
+      if (json.type === "error") {
+        return {
+          ok: false,
+          error: typeof json.error === "string" ? json.error : "Pipeline error",
+          code: typeof json.code === "string" ? json.code : undefined,
+          status: json.code === "RATE_LIMIT" ? 429 : 400,
+        }
+      }
+      if (json.type === "result" && json.success) {
+        final = {
+          idea_id: json.idea_id as string,
+          validation_results: json.validation_results,
+        }
+      }
+    }
+  }
+
+  if (final?.validation_results != null && final.idea_id) {
+    return { ok: true, idea_id: final.idea_id, validation_results: final.validation_results }
+  }
+  return { ok: false, error: "Stream ended without result" }
+}
+
 type Field = "title" | "problem" | "idea" | "market"
 
 const fields: Array<{ key: Field; label: string; gutter: string; placeholder: string }> = [
@@ -38,6 +117,12 @@ export default function ValidatePage() {
   const [error, setError] = useState<string | null>(null)
   const [retryable, setRetryable] = useState(false)
   const [usage, setUsage] = useState<{ used: number; limit: number; resetInSeconds: number } | null>(null)
+  const [similarBrief, setSimilarBrief] = useState<{
+    runId: string
+    previewTitle: string
+    createdAt: string
+  } | null>(null)
+  const [pipelineHint, setPipelineHint] = useState<string | null>(null)
 
   // Auth gate
   useEffect(() => {
@@ -46,7 +131,7 @@ export default function ValidatePage() {
     }
   }, [user, loading, router])
 
-  // Pre-fill (from iteration engine OR from landing inline-try)
+  // Pre-fill when navigating from founder iteration / external prefilled brief
   useEffect(() => {
     try {
       const raw = typeof window !== "undefined" ? localStorage.getItem("fv_prefill_validate") : null
@@ -82,6 +167,35 @@ export default function ValidatePage() {
   const ready = data.title.trim().length >= 3 && data.idea.trim().length >= 40
   const limitReached = usage ? usage.used >= usage.limit : false
 
+  useEffect(() => {
+    if (!user) return
+    const title = data.title.trim()
+    const description = [data.idea, data.problem].filter(Boolean).join("\n\n").trim()
+    if (title.length < 3 || description.length < 24) {
+      setSimilarBrief(null)
+      return
+    }
+    const id = window.setTimeout(() => {
+      void fetch("/api/similar-brief", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "same-origin",
+        body: JSON.stringify({ title, description }),
+      })
+        .then((r) => (r.ok ? r.json() : null))
+        .then((j) => {
+          const m = j?.match as { runId: string; previewTitle: string; createdAt: string; score: number } | null
+          if (j?.success && m && typeof m.score === "number" && m.score >= 0.55) {
+            setSimilarBrief({ runId: m.runId, previewTitle: m.previewTitle, createdAt: m.createdAt })
+          } else {
+            setSimilarBrief(null)
+          }
+        })
+        .catch(() => setSimilarBrief(null))
+    }, 800)
+    return () => clearTimeout(id)
+  }, [user, data.title, data.idea, data.problem])
+
   function autosize(el: HTMLTextAreaElement | null) {
     if (!el) return
     el.style.height = "auto"
@@ -92,6 +206,7 @@ export default function ValidatePage() {
     if (!ready || submitting || !user) return
     setError(null)
     setRetryable(false)
+    setPipelineHint(null)
     setSubmitting(true)
 
     try {
@@ -119,52 +234,82 @@ export default function ValidatePage() {
         })
       } catch {}
 
-      let res: Response
-      try {
-        res = await fetch("/api/validate-idea", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ idea_data: ideaPayload, user_id: user.id, fingerprint }),
-        })
-      } catch {
-        setError(microcopy.validate.errors.network)
-        setRetryable(true)
-        setSubmitting(false)
-        return
+      let json!: {
+        success: boolean
+        idea_id?: string
+        validation_results?: unknown
+        error?: string
       }
 
-      if (!res.ok) {
-        const err = await res.json().catch(() => null)
-        if (res.status === 401) {
+      const streamed = await fetchValidationViaStream(ideaPayload, user.id, fingerprint, setPipelineHint)
+
+      if (streamed.ok) {
+        json = {
+          success: true,
+          idea_id: streamed.idea_id,
+          validation_results: streamed.validation_results,
+        }
+      } else {
+        if (streamed.status === 401) {
           router.replace("/auth?next=/dashboard/validate")
+          setSubmitting(false)
           return
         }
-        if (res.status === 429) {
+        if (streamed.status === 429 || streamed.code === "RATE_LIMIT") {
           setError(microcopy.validate.errors.rateLimit)
           toastRateLimited(microcopy.validate.errors.rateLimit)
           setRetryable(false)
-        } else if (res.status === 408 || res.status === 504) {
-          setError(microcopy.validate.errors.timeout)
-          setRetryable(true)
-        } else if (res.status >= 500) {
-          setError(microcopy.validate.errors.server)
-          setRetryable(true)
-        } else {
-          setError(typeof err?.error === "string" ? err.error : microcopy.validate.errors.generic)
-          setRetryable(false)
+          setSubmitting(false)
+          return
         }
-        setSubmitting(false)
-        return
-      }
 
-      const json = await res.json()
-      if (!json?.success) {
-        const msg =
-          typeof json?.error === "string" ? json.error : microcopy.validate.errors.generic
-        setError(msg)
-        setRetryable(/try again|timeout|unavailable|service/i.test(msg))
-        setSubmitting(false)
-        return
+        let res: Response
+        try {
+          res = await fetch("/api/validate-idea", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ idea_data: ideaPayload, user_id: user.id, fingerprint }),
+          })
+        } catch {
+          setError(streamed.error || microcopy.validate.errors.network)
+          setRetryable(true)
+          setSubmitting(false)
+          return
+        }
+
+        if (!res.ok) {
+          const err = await res.json().catch(() => null)
+          if (res.status === 401) {
+            router.replace("/auth?next=/dashboard/validate")
+            return
+          }
+          if (res.status === 429) {
+            setError(microcopy.validate.errors.rateLimit)
+            toastRateLimited(microcopy.validate.errors.rateLimit)
+            setRetryable(false)
+          } else if (res.status === 408 || res.status === 504) {
+            setError(microcopy.validate.errors.timeout)
+            setRetryable(true)
+          } else if (res.status >= 500) {
+            setError(microcopy.validate.errors.server)
+            setRetryable(true)
+          } else {
+            setError(typeof err?.error === "string" ? err.error : microcopy.validate.errors.generic)
+            setRetryable(false)
+          }
+          setSubmitting(false)
+          return
+        }
+
+        json = await res.json()
+        if (!json?.success) {
+          const msg =
+            typeof json?.error === "string" ? json.error : microcopy.validate.errors.generic
+          setError(msg)
+          setRetryable(/try again|timeout|unavailable|service/i.test(msg))
+          setSubmitting(false)
+          return
+        }
       }
 
       let nextHref = "/dashboard/validate/results"
@@ -225,7 +370,7 @@ export default function ValidatePage() {
 
   return (
     <div className="min-h-screen bg-ink-0 text-bone-0">
-      {submitting && <LoadingTheatre verdictHint="BUILD" />}
+      {submitting && <LoadingTheatre verdictHint="BUILD" pipelineHint={pipelineHint} />}
 
       <header className="sticky top-0 z-30 border-b border-bone-0/[0.06] bg-ink-0/80 backdrop-blur-xl">
         <div className="mx-auto flex h-16 max-w-[1200px] items-center justify-between gap-4 px-4 md:px-10">
@@ -346,6 +491,37 @@ export default function ValidatePage() {
             </motion.div>
           ))}
         </div>
+
+        {similarBrief ? (
+          <motion.div
+            initial={{ opacity: 0, y: 6 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="mt-10 border-l-2 border-ember/40 bg-ember/[0.06] px-5 py-4"
+            role="status"
+          >
+            <div className="mono-caption text-ember/80">Similar brief on your ledger</div>
+            <p className="mt-2 max-w-[560px] text-[14px] leading-relaxed text-bone-1">
+              This run rhymes with{" "}
+              <span className="text-bone-0">&ldquo;{similarBrief.previewTitle.slice(0, 120)}&rdquo;</span> from{" "}
+              <span className="tabular text-bone-0">{similarBrief.createdAt.slice(0, 10)}</span> — open the prior memo
+              or compare after you file again.
+            </p>
+            <div className="mt-4 flex flex-wrap gap-3">
+              <Link
+                href={`/dashboard/validate/results?run=${encodeURIComponent(similarBrief.runId)}`}
+                className="inline-flex items-center gap-2 rounded-md border border-ember/30 bg-ember/10 px-4 py-2 text-[13px] font-medium text-bone-0 transition hover:bg-ember/20"
+              >
+                Open prior memo
+              </Link>
+              <Link
+                href={`/dashboard/compare?a=${encodeURIComponent(similarBrief.runId)}&b=`}
+                className="inline-flex items-center gap-2 rounded-md border border-white/[0.1] px-4 py-2 text-[13px] text-bone-2 transition hover:border-white/[0.2] hover:text-bone-0"
+              >
+                Compare (add second run id)
+              </Link>
+            </div>
+          </motion.div>
+        ) : null}
 
         {error && (
           <motion.div

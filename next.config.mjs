@@ -9,6 +9,13 @@ const nextConfig = {
   images: {
     unoptimized: true,
   },
+  webpack: (config) => {
+    config.ignoreWarnings = [
+      { module: /@opentelemetry\/instrumentation/ },
+      /Critical dependency: the request of a dependency is an expression/,
+    ]
+    return config
+  },
 }
 
 export default nextConfig

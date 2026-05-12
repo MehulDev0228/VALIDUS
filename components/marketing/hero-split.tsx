@@ -1,7 +1,6 @@
 "use client"
 
 import Link from "next/link"
-import Balancer from "react-wrap-balancer"
 import { useRef, useState } from "react"
 import {
   motion,
@@ -13,8 +12,8 @@ import {
 } from "framer-motion"
 import { TextGenerate } from "@/components/effects/text-generate"
 import { GlassCard } from "@/components/effects/glass-card"
-import { ease, timing } from "@/lib/motion"
 import { microcopy } from "@/lib/microcopy"
+import { ease, timing } from "@/lib/motion"
 import { cn } from "@/lib/utils"
 
 export function HeroSplit() {
@@ -35,7 +34,7 @@ export function HeroSplit() {
       data-section="hero"
       className="hero-shell relative isolate min-h-[min(92vh,920px)] overflow-hidden pb-24 pt-32 md:pt-40"
     >
-      <div aria-hidden className="pointer-events-none absolute inset-0 z-[1] dot-grid-hero opacity-[0.35]" />
+      {/* Subtle bottom separator */}
       <div
         aria-hidden
         className="pointer-events-none absolute inset-x-0 bottom-0 z-[1] h-px bg-white/[0.06]"
@@ -44,60 +43,59 @@ export function HeroSplit() {
       <div className="relative z-[2] mx-auto grid max-w-[1320px] grid-cols-1 gap-16 px-6 md:px-10 lg:grid-cols-[1.06fr_0.94fr] lg:gap-16">
         <div className="flex flex-col justify-center">
           <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            transition={{ duration: timing.section.min, ease: ease.editorial }}
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.4, ease: ease.editorial }}
             className="flex items-center gap-3"
           >
             <span className="h-1.5 w-1.5 rounded-full bg-ember shadow-[0_0_16px_rgb(6_182_212_/_0.45)]" />
-            <span className="marketing-label text-bone-1">{microcopy.hero.eyebrow}</span>
+            <span className="marketing-label text-bone-1">The memo before the build.</span>
           </motion.div>
 
           <h1 className="marketing-display mt-8 max-w-[14ch] font-bold tracking-[-0.04em] md:max-w-none">
             <TextGenerate text="Check your idea before you sink months into build." />
           </h1>
 
-          <p className="marketing-body mt-8 max-w-[560px] text-[17px] leading-relaxed text-bone-1">
-            Get a structured memo — tensions left visible, a BUILD / PIVOT / KILL read, and a 48-hour
-            test plan — in minutes after you file. Private, blunt, revisable.
+          <p className="marketing-body mt-8 max-w-[520px] text-[17px] leading-relaxed text-bone-1">
+            Get a structured memo — tensions visible, a verdict, and a 48-hour test plan — in minutes.
           </p>
-          <p className="marketing-body mt-4 max-w-[560px] text-bone-1">{microcopy.home.story}</p>
+
+          <ul className="mt-6 flex flex-wrap gap-2" aria-label="Product highlights">
+            {microcopy.hero.surfaceChips.map((chip) => (
+              <li key={chip.href + chip.label}>
+                <Link
+                  href={chip.href}
+                  className="inline-flex items-center rounded-full border border-white/[0.1] bg-white/[0.03] px-3 py-1.5 font-mono text-[11px] font-medium uppercase tracking-wide text-bone-2 transition-colors hover:border-ember/25 hover:text-bone-1"
+                >
+                  {chip.label}
+                </Link>
+              </li>
+            ))}
+          </ul>
 
           <div className="mt-10 flex flex-wrap items-center gap-3">
             <Link
               href="/auth?next=/dashboard/validate"
-              className="inline-flex items-center gap-2 rounded-md bg-ember px-5 py-3 text-[15px] font-semibold text-ink-0 shadow-[0_10px_36px_-10px_rgb(6_182_212_/_0.55)] transition hover:bg-[#22d3ee] hover:shadow-[0_14px_44px_-10px_rgb(6_182_212_/_0.5)] active:scale-[0.98]"
+              className="cta-primary group relative inline-flex items-center gap-2 overflow-hidden rounded-md bg-ember px-6 py-3.5 text-[15px] font-semibold text-ink-0 shadow-[0_10px_36px_-10px_rgb(6_182_212_/_0.55)] transition hover:bg-[#22d3ee] hover:shadow-[0_14px_44px_-10px_rgb(6_182_212_/_0.5)] active:scale-[0.98]"
             >
-              Try it free
-              <span aria-hidden className="text-ink-0/90">
+              <span
+                aria-hidden
+                className="pointer-events-none absolute inset-0 -translate-x-full bg-gradient-to-r from-transparent via-white/20 to-transparent opacity-0 transition duration-700 ease-out group-hover:translate-x-full group-hover:opacity-100"
+              />
+              <span className="relative">Try it free</span>
+              <span aria-hidden className="relative text-ink-0/90">
                 →
               </span>
             </Link>
             <Link
               href="#sample-memo"
-              className="inline-flex items-center gap-2 rounded-md border border-white/[0.12] bg-white/[0.03] px-5 py-3 text-[15px] font-medium text-bone-0 transition hover:border-white/[0.2] hover:bg-white/[0.06] active:scale-[0.98]"
+              className="inline-flex items-center gap-1.5 text-[13px] font-medium text-bone-2/85 underline-offset-[6px] transition hover:text-bone-1"
             >
               View sample memo
-              <span aria-hidden className="text-bone-2">
-                ↓
+              <span aria-hidden className="text-bone-2/70">
+                →
               </span>
             </Link>
-            <Link
-              href="/alpha"
-              className="inline-flex items-center gap-2 rounded-md px-4 py-3 text-[14px] font-medium text-ember transition hover:text-[#22d3ee]"
-            >
-              {microcopy.preLaunch.ribbonCta}
-            </Link>
-          </div>
-
-          <p className="doc-kicker mt-14 max-w-[520px] border-t border-white/[0.06] pt-10 text-bone-2">
-            <Balancer>
-              Free to start after sign-in · daily run limit · private history when you&apos;re signed in
-            </Balancer>
-          </p>
-
-          <div className="mt-10 hidden text-center md:block" aria-hidden>
-            <span className="hero-scroll-hint inline-block text-xs tracking-[0.3em] text-bone-2">↓</span>
           </div>
         </div>
 
@@ -145,6 +143,9 @@ function MemoHeroPreview({ reduce }: { reduce: boolean }) {
         transformPerspective: 1200,
         transformStyle: "preserve-3d",
       }}
+      /* Subtle float loop */
+      animate={reduce ? {} : { y: [0, -6, 0] }}
+      transition={reduce ? {} : { duration: 6, repeat: Infinity, ease: "easeInOut" }}
       className="w-full max-w-[500px]"
     >
       <GlassCard className="border-white/[0.09] bg-ink-1/90 p-0 shadow-[0_32px_64px_-48px_rgb(0_0_0_/_0.85)]">
@@ -179,7 +180,12 @@ function MemoHeroPreview({ reduce }: { reduce: boolean }) {
                 <span className="tabular font-medium text-bone-0">72 / 100</span>
               </div>
               <div className="mt-2 h-1.5 w-full overflow-hidden rounded-full bg-white/[0.06]">
-                <div className="h-full w-[72%] rounded-full bg-gradient-to-r from-ember/80 to-ember/40" />
+                <motion.div
+                  className="h-full rounded-full bg-gradient-to-r from-ember/80 to-ember/40"
+                  initial={{ width: 0 }}
+                  animate={{ width: "72%" }}
+                  transition={{ duration: 1.2, delay: 0.6, ease: [0.22, 1, 0.36, 1] }}
+                />
               </div>
             </div>
 
@@ -226,15 +232,18 @@ function TensionRow({
 }) {
   const tone =
     severity === "high" ? "text-verdict-kill/90" : "text-verdict-pivot/90"
+  const bar =
+    severity === "high" ? "bg-verdict-kill" : "bg-verdict-pivot"
   return (
     <li
       onMouseEnter={onEnter}
       className={cn(
-        "rounded-lg border border-transparent px-3 py-2.5 transition-colors duration-200",
+        "flex items-start gap-3 rounded-lg border border-transparent px-3 py-2.5 transition-all duration-200",
         dim ? "opacity-50" : "opacity-100",
         active && "border-white/[0.08] bg-white/[0.03]",
       )}
     >
+      <span className={cn("mt-1.5 h-full w-0.5 min-h-[24px] shrink-0 rounded-full", bar)} />
       <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
         <span className={cn("text-[11px] font-semibold uppercase tracking-wide", tone)}>
           {severity}

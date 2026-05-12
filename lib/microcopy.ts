@@ -59,6 +59,12 @@ export const microcopy = {
       "right problem, reshape the wedge",
       "pause or drop as stated",
     ],
+    /** Visible hooks under hero — features that mostly appear after a memo run. */
+    surfaceChips: [
+      { label: "48-hour plan", href: "#surface-48h" },
+      { label: "Share memo link", href: "#surface-share" },
+      { label: "Explore library", href: "/explore" },
+    ],
   },
   tape: {
     eyebrow: "Recent memos",
@@ -114,7 +120,7 @@ export const microcopy = {
     manifesto: "Straightforward validation for startup ideas — private notes, structured output.",
     taglineShort: "Memo before build.",
     columns: {
-      product: ["New run", "Sample memo", "Examples"],
+      product: ["New run", "Sample memo", "Examples", "Explore"],
       method: ["How it works", "FAQ"],
       house: ["Early access", "Changelog"],
     },

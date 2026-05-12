@@ -5,10 +5,11 @@ import { Line, LineChart, ResponsiveContainer } from "recharts"
 import { ease } from "@/lib/motion"
 import { deriveCognition, type ConvictionTrend } from "@/lib/cognition"
 import { ChamberLink } from "@/components/chamber"
+import { memoResultHref } from "@/lib/founder-workflow/memo-links"
 import type { DecisionRecord } from "@/lib/founder-workflow/types"
 import { cn } from "@/lib/utils"
 
-function OppSpark({ score }: { score: number }) {
+function OppSpark({ score, verdict }: { score: number; verdict: DecisionRecord["verdict"] }) {
   const s = Math.max(0, Math.min(100, Math.round(score)))
   const jitter = ((recordHash(score) % 17) - 8) / 100
   const data = [
@@ -20,15 +21,22 @@ function OppSpark({ score }: { score: number }) {
     { v: Math.max(0, Math.min(100, s * (0.98 - jitter))) },
   ]
 
+  const stroke =
+    verdict === "BUILD"
+      ? "rgb(var(--verdict-build))"
+      : verdict === "KILL"
+        ? "rgb(var(--verdict-kill))"
+        : "rgb(var(--verdict-pivot))"
+
   return (
-    <div className="hidden h-[30px] w-[56px] sm:block" aria-hidden>
+    <div className="hidden h-[40px] w-[72px] sm:block" aria-hidden>
       <ResponsiveContainer width="100%" height="100%">
-        <LineChart data={data} margin={{ top: 4, right: 2, left: 0, bottom: 0 }}>
+        <LineChart data={data} margin={{ top: 6, right: 4, left: 0, bottom: 0 }}>
           <Line
             type="monotone"
             dataKey="v"
-            stroke="rgb(var(--bone-2) / 0.55)"
-            strokeWidth={1.2}
+            stroke={stroke}
+            strokeWidth={1.65}
             dot={false}
             isAnimationActive={false}
           />
@@ -108,9 +116,10 @@ function ThoughtArtifact({
       className="group relative"
     >
       <ChamberLink
-        href={`/dashboard/validate?ideaId=${encodeURIComponent(record.ideaId)}`}
+        href={memoResultHref(record)}
         className={cn(
-          "group/card grid grid-cols-[12px_1fr_auto] items-baseline gap-6 border-l-[3px] py-7 pl-5 transition-[transform,box-shadow,background-color] duration-500 hover:bg-bone-0/[0.04] hover:shadow-[0_14px_40px_-34px_rgb(23_26_31_/_0.12)] md:gap-8 md:py-8 md:hover:scale-[1.005]",
+          "group/card grid grid-cols-[12px_1fr_auto] items-baseline gap-6 border-l-[3px] pl-5 transition-[transform,box-shadow,background-color] duration-500 hover:bg-bone-0/[0.04] hover:shadow-[0_14px_40px_-34px_rgb(23_26_31_/_0.12)] md:gap-8 md:hover:scale-[1.005]",
+          index === 0 ? "py-10 md:py-11" : "py-6 md:py-7",
           verdict === "BUILD" && "border-verdict-build",
           verdict === "KILL" && "border-verdict-kill",
           verdict === "PIVOT" && "border-verdict-pivot",
@@ -130,7 +139,14 @@ function ThoughtArtifact({
         {/* Body */}
         <div className="min-w-0">
           {/* Title */}
-          <h3 className="font-serif text-[clamp(20px,2.2vw,30px)] font-light leading-[1.18] tracking-[-0.015em] text-bone-0">
+          <h3
+            className={cn(
+              "font-serif font-light leading-[1.18] tracking-[-0.015em] text-bone-0",
+              index === 0
+                ? "text-[clamp(22px,2.45vw,34px)]"
+                : "text-[clamp(19px,2vw,26px)]",
+            )}
+          >
             {record.ideaTitle || record.summary || "Untitled brief"}
           </h3>
 
@@ -159,7 +175,7 @@ function ThoughtArtifact({
           <span className={`mono-caption tabular ${verdictTone}`}>{verdict}</span>
           {score != null ? (
             <div className="flex flex-col items-end gap-2 sm:flex-row sm:items-center sm:gap-3">
-              <OppSpark score={score} />
+              <OppSpark score={score} verdict={verdict} />
               <span className="mono-caption tabular text-bone-2">{score}/100</span>
             </div>
           ) : null}

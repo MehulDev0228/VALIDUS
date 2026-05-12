@@ -4,6 +4,7 @@ import { useState } from "react"
 import { motion, AnimatePresence } from "framer-motion"
 import { ease } from "@/lib/motion"
 import { ChamberLink } from "@/components/chamber"
+import { memoResultHref } from "@/lib/founder-workflow/memo-links"
 import type { DecisionRecord } from "@/lib/founder-workflow/types"
 
 /**
@@ -83,7 +84,7 @@ function Headstone({ record, index }: { record: DecisionRecord; index: number })
       className="bg-ink-0"
     >
       <ChamberLink
-        href={`/dashboard/validate?ideaId=${encodeURIComponent(record.ideaId)}`}
+        href={memoResultHref(record)}
         className="grid grid-cols-[1fr_auto] items-baseline gap-6 px-6 py-6 md:px-8 md:py-7"
       >
         <h3 className="font-serif text-[clamp(17px,1.7vw,22px)] font-light leading-snug tracking-[-0.01em] text-bone-1/85">

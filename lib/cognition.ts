@@ -170,6 +170,7 @@ export interface Tension {
   ideaTitle: string
   detail: string
   ideaId: string
+  runId?: string
 }
 
 export function deriveActiveTensions(records: DecisionRecord[]): Tension[] {
@@ -190,6 +191,7 @@ export function deriveActiveTensions(records: DecisionRecord[]): Tension[] {
       ideaTitle: top.ideaTitle || top.summary || "Untitled brief",
       detail: `${top.opportunityScore}/100 · holding for ${daysOld(top)}d`,
       ideaId: top.ideaId,
+      runId: top.runId,
     })
   }
 
@@ -206,6 +208,7 @@ export function deriveActiveTensions(records: DecisionRecord[]): Tension[] {
           ? `${worst.opportunityScore}/100 · the shape may be wrong`
           : "the shape may be wrong",
       ideaId: worst.ideaId,
+      runId: worst.runId,
     })
   }
 
@@ -226,6 +229,7 @@ export function deriveActiveTensions(records: DecisionRecord[]): Tension[] {
       ideaTitle: newest.ideaTitle || newest.summary || "Untitled brief",
       detail: `${list.length} revisits — what keeps pulling you back?`,
       ideaId: newest.ideaId,
+      runId: newest.runId,
     })
   }
 
@@ -239,6 +243,7 @@ export function deriveActiveTensions(records: DecisionRecord[]): Tension[] {
       ideaTitle: k.ideaTitle || k.summary || "Untitled brief",
       detail: `killed ${daysOld(k)}d ago — has the lesson moved into the next read?`,
       ideaId: k.ideaId,
+      runId: k.runId,
     })
   }
 
